@@ -1,0 +1,88 @@
+
+server:
+  port: 7070
+  tomcat:
+    max-connections: 2000 # Maximum connections
+    accept-count: 200     # Maximum waiting number
+  servlet:
+    context-path: /
+  error:
+    include-stacktrace: never
+    include-message: always
+    include-exception: true
+    include-binding-errors: always
+
+spring:
+  threads:
+    virtual:
+      enabled: true
+  application:
+    name: limiter-kafka-mps
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      group-id: limiter-service
+      max-poll-records: 100
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+    listener:
+      ack-mode: MANUAL
+      observation-enabled: true
+
+management:
+  server:
+    port: ${server.port}
+  endpoints:
+    web:
+      exposure:
+        include: info, health, httptrace, loggers, metrics, threaddump
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: always
+      show-components: always
+  info:
+    git:
+      mode: full
+  health:
+    ratelimiters:
+      enabled: true
+    circuitbreakers:
+      enabled: true
+  tracing:
+    enabled: true
+    sampling:
+      probability: 1.0
+
+resilience4j:
+  retry:
+    configs:
+      default:
+        maxAttempts: 3
+        waitDuration: 100
+        retryExceptions:
+          - org.springframework.web.client.HttpClientErrorException
+          - org.springframework.web.client.HttpServerErrorException
+          - java.util.concurrent.TimeoutException
+          - java.io.IOException
+        fail-after-max-retries: true
+    instances:
+      remote-consumer:
+        baseConfig: default
+
+logging:
+  pattern:
+    console: '%clr(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %clr(%-5p) [${spring.application.name}] [%clr(%15.15t){faint}] [%clr(%32X{traceId}-%16X{spanId}){blue}] %clr(%40.40logger{5.10}:%-4L){cyan} : %m %n'
+  level:
+    io.oigres.ecomm.service.limiter: INFO
+
+ecomm:
+  service:
+    limiter:
+      topics:
+        incoming-request: incoming-request-topic
+    tracing:
+      url: http://localhost:4318/v1/traces
+

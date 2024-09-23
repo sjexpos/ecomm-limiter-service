@@ -1,0 +1,90 @@
+
+server:
+  port: 7071
+  tomcat:
+    max-connections: 2000 # Maximum connections
+    accept-count: 200     # Maximum waiting number
+  servlet:
+    context-path: /
+  error:
+    include-stacktrace: never
+    include-message: always
+    include-exception: true
+    include-binding-errors: always
+
+spring:
+  threads:
+    virtual:
+      enabled: true
+  application:
+    name: limiter-srv
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+    template:
+      observation-enabled: true
+#  cache:
+#    type: redis
+#    redis:
+#      cache-null-values: true
+#      use-key-prefix: true
+#      key-prefix: ECOMM-LIMITER-MS
+#      time-to-live: 5000
+#  data:
+#    redis:
+#      host: localhost
+#      port: 6379
+#      ssl:
+#        enabled: false
+#      timeout: 1000
+
+management:
+  server:
+    port: ${server.port}
+  endpoints:
+    web:
+      exposure:
+        include: info, health, httptrace, loggers, metrics, threaddump, refresh
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: always
+      show-components: always
+  info:
+    git:
+      mode: full
+  tracing:
+    enabled: true
+    sampling:
+      probability: 1.0
+
+springdoc:
+  show-actuator: false
+  show-login-endpoint: false
+  api-docs:
+    path: /api
+  swagger-ui:
+    path: /
+    operationsSorter: method
+    disable-swagger-default-url: true
+
+logging:
+  pattern:
+    console: '%clr(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %clr(%-5p) [${spring.application.name}] [%clr(%15.15t){faint}] [%clr(%32X{traceId}-%16X{spanId}){blue}] %clr(%40.40logger{5.10}:%-4L){cyan} : %m %n'
+  level:
+    io.oigres.ecomm.service.limiter: INFO
+
+ecomm:
+  termsOfService: https://ecomm.oigres.io/terms/
+  license: https://ecomm.oigres.io/license/
+  service:
+    limiter:
+      name: EComm
+      version: ${project.version}
+      topics:
+        blacklisted-users: blacklisted-users-topic
+    tracing:
+      url: http://localhost:4318/v1/traces
+
