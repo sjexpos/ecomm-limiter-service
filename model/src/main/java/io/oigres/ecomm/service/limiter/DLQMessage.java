@@ -1,9 +1,15 @@
 package io.oigres.ecomm.service.limiter;
 
+import lombok.AllArgsConstructor;
 import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 @Builder
+@Getter
+@NoArgsConstructor
+@AllArgsConstructor
 public class DLQMessage {
-    private final Object data;
-    private final String error;
+    private Object data;
+    private String error;
 }

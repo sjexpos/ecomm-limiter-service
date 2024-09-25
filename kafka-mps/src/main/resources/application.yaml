@@ -26,8 +26,14 @@ spring:
       group-id: limiter-service
       max-poll-records: 100
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "*"
+      observation-enabled: true
     listener:
       ack-mode: MANUAL
+      observation-enabled: true
+    producer:
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
       observation-enabled: true
 
 management:
@@ -80,9 +86,18 @@ logging:
 
 ecomm:
   service:
-    limiter:
-      topics:
-        incoming-request: incoming-request-topic
     tracing:
       url: http://localhost:4318/v1/traces
-
+    limiter:
+      mps:
+        writer:
+          threads: 50
+          poll-timeout: 100ms
+        reader:
+          queue-timeout: 50ms
+          purge-time: 50ms
+      topics:
+        incoming-request: incoming-request-topic
+        request-dlq: request-dlq
+      processor:
+        baseUri: http://localhost:7071

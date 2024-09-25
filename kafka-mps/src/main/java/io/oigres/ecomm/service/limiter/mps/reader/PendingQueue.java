@@ -281,11 +281,11 @@ class PendingQueue<E> implements java.io.Serializable {
      * @throws InterruptedException {@inheritDoc}
      * @throws NullPointerException {@inheritDoc}
      */
-    public boolean offer(E e, long timeout, TimeUnit unit)
+    public boolean offer(E e, Duration timeout)
             throws InterruptedException {
 
         if (e == null) throw new NullPointerException();
-        long nanos = unit.toNanos(timeout);
+        long nanos = timeout.toNanos();
         final int c;
         final ReentrantLock putLock = this.putLock;
         final AtomicInteger count = this.count;

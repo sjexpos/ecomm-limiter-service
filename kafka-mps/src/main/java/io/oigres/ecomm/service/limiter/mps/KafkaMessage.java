@@ -1,5 +1,6 @@
 package io.oigres.ecomm.service.limiter.mps;
 
+import io.opentelemetry.context.Context;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -17,6 +18,8 @@ public class KafkaMessage {
     private ReentrantLock lock = new ReentrantLock();
     private AtomicBoolean processed = new AtomicBoolean(false);
     private AtomicBoolean acknowledged = new AtomicBoolean(false);
+    @Getter
+    private Context context = Context.current();
 
     public void acknowledge() {
         if (!this.processed.get()) {

@@ -21,7 +21,7 @@ public class MessagePollingListener {
 
     @KafkaListener(topics = "${ecomm.service.limiter.topics.incoming-request}")
     public void consumeMessage(ConsumerRecord<String, Object> record, Acknowledgment ack) {
-        log.trace("Consumed kafka message");
+        log.info("Consumed kafka message");
         try {
             messageReader.queue(record, ack);
         } catch (Throwable t) {

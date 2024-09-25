@@ -1,5 +1,6 @@
 package io.oigres.ecomm.service.limiter;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
@@ -18,8 +19,11 @@ public class KafkaMPSBootstrap {
 	}
 
 	@Bean
-	public RestTemplate restTemplate(RestTemplateBuilder builder) {
-		return builder.rootUri("http://localhost:7071").build();
+	public RestTemplate restTemplate(
+			RestTemplateBuilder builder,
+			@Value("${ecomm.service.limiter.processor.baseUri}") String baseUri
+	) {
+		return builder.rootUri(baseUri).build();
 	}
 
 }
