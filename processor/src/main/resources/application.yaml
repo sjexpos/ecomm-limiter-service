@@ -82,6 +82,7 @@ ecomm:
     limiter:
       name: EComm
       version: ${project.version}
+      rate-limit: 15
       topics:
         blacklisted-users: blacklisted-users-topic
     tracing:

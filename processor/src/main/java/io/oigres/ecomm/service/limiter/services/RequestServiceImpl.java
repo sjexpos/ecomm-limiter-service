@@ -20,23 +20,19 @@ import java.util.Optional;
 @Slf4j
 @Service
 public class RequestServiceImpl implements RequestService {
-    private static final int DEFAULT_RATE_LIMIT = 15;
 
-    private final int rateLimit;
-
+    private final int rateLimit; // TODO - this rate limit should be different per user according to some rule. It's just a demo!
     private final RequestRepository requestRepository;
-    private final KafkaTemplate<String, Object> kafkaTemplate;
-    private final String blacklistedUserTopicName;
+    private final KafkaTemplate<String, BlackedInfo> kafkaTemplate;
 
     public RequestServiceImpl(
             RequestRepository requestRepository,
-            KafkaTemplate<String, Object> kafkaTemplate,
-            @Value("${ecomm.service.limiter.topics.blacklisted-users}") String blacklistedUserTopicName
+            KafkaTemplate<String, BlackedInfo> kafkaTemplate,
+            @Value("${ecomm.service.limiter.rate-limit}") int rateLimit
     ) {
         this.requestRepository = requestRepository;
         this.kafkaTemplate = kafkaTemplate;
-        this.rateLimit = DEFAULT_RATE_LIMIT;
-        this.blacklistedUserTopicName = blacklistedUserTopicName;
+        this.rateLimit = rateLimit;
     }
 
     private List<RequestData> addSorted(List<RequestData> requests, RequestData data) {
@@ -57,8 +53,8 @@ public class RequestServiceImpl implements RequestService {
     private void broadcastBlacklistedUser(String userId) {
         LocalDateTime blockedFrom = LocalDateTime.now();
         LocalDateTime blockedTo = blockedFrom.plusMinutes(1);
-        this.kafkaTemplate.send(
-                this.blacklistedUserTopicName,
+        this.kafkaTemplate.sendDefault(
+                userId,
                 BlackedInfo.builder()
                         .userId(userId)
                         .from(blockedFrom)
