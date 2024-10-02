@@ -25,6 +25,10 @@
       <groupId>io.oigres.ecomm</groupId>
       <artifactId>limiter-service-model</artifactId>
     </dependency>
+    <dependency>
+      <groupId>io.oigres.ecomm</groupId>
+      <artifactId>cache-lib</artifactId>
+    </dependency>
 
     <dependency>
       <groupId>org.springframework.boot</groupId>
@@ -57,7 +61,6 @@
     <dependency>
       <groupId>org.redisson</groupId>
       <artifactId>redisson-spring-boot-starter</artifactId>
-      <version>3.36.0</version>
     </dependency>
 
     <!-- Distributed tracing -->

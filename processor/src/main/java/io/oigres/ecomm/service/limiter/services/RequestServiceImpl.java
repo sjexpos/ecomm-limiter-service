@@ -6,6 +6,7 @@ import io.oigres.ecomm.service.limiter.RequestAudit;
 import io.oigres.ecomm.service.limiter.ResponseAudit;
 import io.oigres.ecomm.service.limiter.model.RequestData;
 import io.oigres.ecomm.service.limiter.model.StorageBucket;
+import io.oigres.ecomm.service.limiter.repositories.BlackedInfoRepository;
 import io.oigres.ecomm.service.limiter.repositories.RequestRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -23,14 +24,17 @@ public class RequestServiceImpl implements RequestService {
 
     private final int rateLimit; // TODO - this rate limit should be different per user according to some rule. It's just a demo!
     private final RequestRepository requestRepository;
+    private final BlackedInfoRepository blackedInfoRepository;
     private final KafkaTemplate<String, BlackedInfo> kafkaTemplate;
 
     public RequestServiceImpl(
             RequestRepository requestRepository,
+            BlackedInfoRepository blackedInfoRepository,
             KafkaTemplate<String, BlackedInfo> kafkaTemplate,
             @Value("${ecomm.service.limiter.rate-limit}") int rateLimit
     ) {
         this.requestRepository = requestRepository;
+        this.blackedInfoRepository = blackedInfoRepository;
         this.kafkaTemplate = kafkaTemplate;
         this.rateLimit = rateLimit;
     }
@@ -50,17 +54,25 @@ public class RequestServiceImpl implements RequestService {
         return requests;
     }
 
-    private void broadcastBlacklistedUser(String userId) {
+    private BlackedInfo broadcastBlacklistedUser(String userId) {
         LocalDateTime blockedFrom = LocalDateTime.now();
         LocalDateTime blockedTo = blockedFrom.plusMinutes(1);
-        this.kafkaTemplate.sendDefault(
-                userId,
-                BlackedInfo.builder()
-                        .userId(userId)
-                        .from(blockedFrom)
-                        .to(blockedTo)
-                        .build()
-        );
+        BlackedInfo blackedInfo = BlackedInfo.builder()
+                .userId(userId)
+                .from(blockedFrom)
+                .to(blockedTo)
+                .build();
+        this.kafkaTemplate.sendDefault(userId, blackedInfo);
+        return blackedInfo;
+    }
+
+    private void blacklistUser(String userId) {
+        BlackedInfo blackedInfo = this.blackedInfoRepository.getBlackedInfo(userId);
+        if (blackedInfo != null && blackedInfo.isIncluded(LocalDateTime.now())) {
+            return;
+        }
+        blackedInfo = broadcastBlacklistedUser(userId);
+        this.blackedInfoRepository.storeBlackedInfo(userId, blackedInfo);
     }
 
     @CacheLock
@@ -77,7 +89,7 @@ public class RequestServiceImpl implements RequestService {
         );
         this.requestRepository.storeUserRequests(request.getUserId(), request.getArrived(), bucket);
         if (bucket.getRequests().size() > this.rateLimit) {
-            broadcastBlacklistedUser(request.getUserId());
+            blacklistUser(request.getUserId());
         }
     }
 
@@ -104,7 +116,7 @@ public class RequestServiceImpl implements RequestService {
         if (data.isPresent()) {
             data.get().setResponse(response);
             data.get().setResponseArrived(time);
-            this.requestRepository.storeUserRequests(response.getUserId(), response.getArrived(), bucket);
+            this.requestRepository.storeUserRequests(response.getUserId(), time, bucket);
         }
     }
 

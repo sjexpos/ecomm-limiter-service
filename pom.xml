@@ -38,6 +38,7 @@
     <springdoc.version>2.6.0</springdoc.version>
     <swagger-annotations.version>2.2.22</swagger-annotations.version>
     <slf4j.api.version>2.0.9</slf4j.api.version>
+    <redisson-spring-boot-starter.version>3.36.0</redisson-spring-boot-starter.version>
     <junit-pioneer.version>2.2.0</junit-pioneer.version>
   </properties>
 
@@ -52,6 +53,7 @@
     <module>model</module>
     <module>kafka-mps</module>
     <module>processor</module>
+    <module>cache-lib</module>    
   </modules>
 
   <scm>
@@ -121,6 +123,22 @@
         <version>${spring-boot.version}</version>
       </dependency>
 
+      <dependency>
+        <groupId>org.redisson</groupId>
+        <artifactId>redisson-spring-boot-starter</artifactId>
+        <version>${redisson-spring-boot-starter.version}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>io.oigres.ecomm</groupId>
+        <artifactId>cache-lib</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>io.oigres.ecomm</groupId>
+        <artifactId>limiter-service-kafka-mps</artifactId>
+        <version>${project.version}</version>
+      </dependency>
       <dependency>
         <groupId>io.oigres.ecomm</groupId>
         <artifactId>limiter-service-model</artifactId>

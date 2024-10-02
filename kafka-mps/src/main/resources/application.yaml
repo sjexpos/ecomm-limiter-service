@@ -30,14 +30,18 @@ spring:
       enable-auto-commit: false
       group-id: limiter-service
       max-poll-records: 100
-      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      key-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
       properties:
         spring.json.trusted.packages: "*"
+        spring.deserializer.key.delegate.class: org.apache.kafka.common.serialization.StringDeserializer
+        spring.deserializer.value.delegate.class: org.springframework.kafka.support.serializer.JsonDeserializer
       observation-enabled: true
     listener:
       ack-mode: MANUAL
       observation-enabled: true
     producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
       observation-enabled: true
 

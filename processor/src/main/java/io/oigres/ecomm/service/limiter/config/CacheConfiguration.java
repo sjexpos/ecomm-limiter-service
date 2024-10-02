@@ -6,6 +6,7 @@ import io.oigres.ecomm.cache.GzipRedisSerializer;
 import io.oigres.ecomm.cache.CacheLockFactory;
 import io.oigres.ecomm.cache.RedisLockAwareCacheManager;
 import io.oigres.ecomm.cache.RedissonCacheLockFactory;
+import io.oigres.ecomm.service.limiter.BlackedInfo;
 import io.oigres.ecomm.service.limiter.model.StorageBucket;
 import org.redisson.api.RedissonClient;
 import org.redisson.spring.data.connection.RedissonConnectionFactory;
@@ -56,6 +57,12 @@ public class CacheConfiguration {
                         .serializeValuesWith(RedisSerializationContext.SerializationPair
                                 .fromSerializer(new GzipRedisSerializer<>(new Jackson2JsonRedisSerializer<>(objectMapper, StorageBucket.class))))
                         .entryTtl(Duration.ofMinutes(2)));
+        cacheConfigurations.put(CacheNames.BLACKED_INFO_CACHE_NAME,
+                RedisCacheConfiguration.defaultCacheConfig()
+                        .serializeValuesWith(RedisSerializationContext.SerializationPair
+                                .fromSerializer(new GzipRedisSerializer<>(new Jackson2JsonRedisSerializer<>(objectMapper, BlackedInfo.class))))
+                        .entryTtl(Duration.ofHours(12)));
+
         RedisCacheWriter cacheWriter = RedisCacheWriter.nonLockingRedisCacheWriter(connectionFactory);
         cacheWriter.withStatisticsCollector(CacheStatisticsCollector.create());
         RedisCacheManager cacheManager = new RedisLockAwareCacheManager(

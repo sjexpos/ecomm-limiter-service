@@ -22,10 +22,11 @@ spring:
     virtual:
       enabled: true
   application:
-    name: limiter-srv
+    name: limiter-processor
   kafka:
     bootstrap-servers: localhost:9092
     producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
     template:
       observation-enabled: true
