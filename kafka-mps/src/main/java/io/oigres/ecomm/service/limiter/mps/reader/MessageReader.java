@@ -24,7 +24,7 @@ public class MessageReader {
     public MessageReader(
             MessageReaderProperties configuration
     ) {
-        this.pendingQueue = new PendingQueue<KafkaMessage>();
+        this.pendingQueue = new PendingQueue<KafkaMessage>(configuration.getQueueSize());
         this.orderIterator = (PendingQueue<KafkaMessage>.OrderIterator) this.pendingQueue.orderIterator();
         this.inflightSet = new ConcurrentHashMap<>();
         this.offerTimeout = configuration.getQueueTimeout();

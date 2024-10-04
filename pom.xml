@@ -34,6 +34,7 @@
     <spring-boot-maven-plugin.version>3.3.2</spring-boot-maven-plugin.version>
 
     <spring-boot.version>3.3.2</spring-boot.version>
+    <spring-kafka.version>3.2.3</spring-kafka.version>
     <spring-cloud.version>2023.0.3</spring-cloud.version>
     <springdoc.version>2.6.0</springdoc.version>
     <swagger-annotations.version>2.2.22</swagger-annotations.version>
@@ -53,7 +54,7 @@
     <module>model</module>
     <module>kafka-mps</module>
     <module>processor</module>
-    <module>cache-lib</module>    
+    <module>cache-lib</module>
   </modules>
 
   <scm>
@@ -86,7 +87,7 @@
       <dependency>
         <groupId>org.springframework.kafka</groupId>
         <artifactId>spring-kafka-bom</artifactId>
-        <version>3.2.3</version>
+        <version>${spring-kafka.version}</version>
         <type>pom</type>
         <scope>import</scope>
       </dependency>

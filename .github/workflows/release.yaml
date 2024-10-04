@@ -1,0 +1,10 @@
+name: Release
+on:
+  workflow_dispatch:
+    
+jobs:
+  release:
+    uses: sjexpos/gh-actions/.github/workflows/maven-releasing.yaml@main
+    with:
+      group_id: io.oigres.ecomm
+      artifact_id: limiter-service

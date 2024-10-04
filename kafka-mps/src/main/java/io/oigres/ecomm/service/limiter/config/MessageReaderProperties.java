@@ -16,4 +16,7 @@ public class MessageReaderProperties {
     @NotNull
     @NotBlank
     private Duration purgeTime;
+    @NotNull
+    @NotBlank
+    private int queueSize;
 }

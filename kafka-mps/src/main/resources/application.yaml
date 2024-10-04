@@ -103,6 +103,7 @@ ecomm:
           threads: 50
           poll-timeout: 100ms
         reader:
+          queue-size: 1000000
           queue-timeout: 50ms
           purge-time: 50ms
       topics:
