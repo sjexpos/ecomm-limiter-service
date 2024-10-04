@@ -63,7 +63,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: ./kafka-mps
-          file: Dockerfile
+          file: ./kafka-mps/Dockerfile
           platforms: linux/amd64
           push: false
           tags: sjexpos/ecomm-limiter-kafka-mps:latest
@@ -91,7 +91,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: ./processor
-          file: Dockerfile
+          file: ./processor/Dockerfile
           platforms: linux/amd64
           push: false
           tags: sjexpos/ecomm-limiter-processor:latest
