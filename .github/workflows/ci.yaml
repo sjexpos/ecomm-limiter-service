@@ -65,8 +65,8 @@ jobs:
           context: ./kafka-mps
           file: ./kafka-mps/Dockerfile
           platforms: linux/amd64
-          push: false
-          tags: sjexpos/ecomm-limiter-kafka-mps:latest
+          push: true
+          tags: sjexposecomm/limiter-kafka-mps:latest
 
   build-docker-image-processor:
     name: Create docker image processor
@@ -93,8 +93,8 @@ jobs:
           context: ./processor
           file: ./processor/Dockerfile
           platforms: linux/amd64
-          push: false
-          tags: sjexpos/ecomm-limiter-processor:latest
+          push: true
+          tags: sjexposecomm/limiter-processor:latest
 
   delete-unused-artifact:
     name: Delete unused artifact
