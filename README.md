@@ -7,6 +7,14 @@
 [![Issues](https://img.shields.io/github/issues-search/sjexpos/ecomm-limiter?query=is%3Aopen&label=issues&style=plastic)](https://github.com/sjexpos/ecomm-limiter/issues)
 [![Commits](https://img.shields.io/github/last-commit/sjexpos/ecomm-limiter?logo=github&style=plastic)](https://github.com/sjexpos/ecomm-limiter/commits)
 
+
+[![Kakfa MPS Docker pulls](https://img.shields.io/docker/pulls/sjexposecomm/limiter-kafka-mps?logo=docker&style=plastic&label=Kakfa%20MPS%20pulls)](https://hub.docker.com/r/sjexposecomm/limiter-kafka-mps)
+[![Kakfa MPS Docker size](https://img.shields.io/docker/image-size/sjexposecomm/limiter-kafka-mps?logo=docker&style=plastic&label=Kakfa%20MPS%20%20size)](https://hub.docker.com/r/sjexposecomm/limiter-kafka-mps/tags)
+
+
+[![Processor Docker pulls](https://img.shields.io/docker/pulls/sjexposecomm/limiter-processor?logo=docker&style=plastic&label=Processor%20pulls)](https://hub.docker.com/r/sjexposecomm/limiter-processor)
+[![Processor Docker size](https://img.shields.io/docker/image-size/sjexposecomm/limiter-processor?logo=docker&style=plastic&label=Processor%20pulls)](https://hub.docker.com/r/sjexposecomm/limiter-processor/tags)
+
 ![](docs/images/arch-limiter.png)
 
 This microservice is responsible for ...
