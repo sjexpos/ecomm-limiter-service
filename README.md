@@ -16,10 +16,10 @@ This microservice is responsible for ...
 
 This project has the following modules:
 
-* **cache-lib** - 
-* **model** - 
-* **kafka-mps** - 
-* **processor** - 
+* **cache-lib** - cache library which implements redis lock using annotation @RedisLock and gzip serializer
+* **model** - objects which are shared through topics
+* **kafka-mps** - message proxy service to implement push model
+* **processor** - component which decide if the user has reached the rate limit
 
 ## Framework
 
@@ -51,41 +51,10 @@ mvn clean && mvn tests
 * **Redis** - it must be run on port 6379. None password.
 * **Kafka** - it must be run on port 9092.
 
-### Start volatile storage locally
-
-```bash
-cd infrastructure/spring-boot
-mvn -Dtests.db.database=ecomm_users pre-integration-test
-```
-
 ### Run application
 ```bash
 ./run.sh
 ```
-
-### Debug application on port 5005
-```bash
-./debug.sh
-```
-
-## Swagger UI
-
-http://localhost:6061/
-
-
-## Run application from IDE
-
-This application uses S3Client from AWS SDK v2 because it needs to reach S3 and get a signed upload URL when a user wants to upload an avatar. So when it run locally and AWS credentials are not available, it's possible connect to localstack which is running as part as `local volatile storage`.
-
-For that, the following environment variables must be defined in the IDE launcher
-```
-AWS_REGION=us-east-1
-AWS_DEFAULT_REGION=us-east-1
-AWS_ACCESS_KEY_ID=test
-AWS_SECRET_ACCESS_KEY=test
-AWS_ENDPOINT=http://localhost:4566
-```
-
 
 ## Check message on a Kafka topic
 
@@ -95,3 +64,4 @@ and the following command will allow you to see the message which are generated 
 ```bash
 /bin/kafka-console-consumer --bootstrap-server localhost:9092 --from-beginning --topic users-entities-update-topic
 ```
+
