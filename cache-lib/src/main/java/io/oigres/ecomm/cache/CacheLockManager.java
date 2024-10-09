@@ -6,6 +6,11 @@ import org.springframework.util.Assert;
 import java.util.*;
 import java.util.concurrent.locks.Lock;
 
+/**
+ * This class stores lock state which is attached to each thread.
+ *
+ * @author sergio.exposito (sjexpos@gmail.com)
+ */
 public class CacheLockManager {
 
     private static final ThreadLocal<Set<Lock>> locks = new NamedThreadLocal<>("Cache locks");

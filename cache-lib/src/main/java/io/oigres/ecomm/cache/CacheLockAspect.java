@@ -8,6 +8,11 @@ import org.aspectj.lang.annotation.Aspect;
 import java.util.List;
 import java.util.concurrent.locks.Lock;
 
+/**
+ * Aspect class to process @CacheLock annotation
+ *
+ * @author sergio.exposito (sjexpos@gmail.com)
+ */
 @Slf4j
 @Aspect
 public class CacheLockAspect {
