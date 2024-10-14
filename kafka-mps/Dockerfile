@@ -24,8 +24,6 @@ RUN echo "#!/usr/bin/env bash" > /opt/entrypoint.sh && \
     echo "echo \"MONITORING_URL: \$MONITORING_URL \" " >> /opt/entrypoint.sh && \
     echo "echo \"KAFKA_SERVERS: \$KAFKA_SERVERS \" " >> /opt/entrypoint.sh && \
     echo "echo \"TRACING_URL: \$TRACING_URL \" " >> /opt/entrypoint.sh && \
-    echo "echo \"TOPIC_INCOMING_REQUESTS: \$TOPIC_INCOMING_REQUESTS \" " >> /opt/entrypoint.sh && \
-    echo "echo \"TOPIC_DLQ: \$TOPIC_DLQ \" " >> /opt/entrypoint.sh && \
     echo "echo \"PROCESSOR_SERVICE_BASEURI: \$PROCESSOR_SERVICE_BASEURI \" " >> /opt/entrypoint.sh && \
     echo "echo \"READER_QUEUE_SIZE: \$READER_QUEUE_SIZE \" " >> /opt/entrypoint.sh && \
     echo "echo \"WRITER_THREADS: \$WRITER_THREADS \" " >> /opt/entrypoint.sh && \
