@@ -4,7 +4,11 @@ FROM amazoncorretto:21-al2-jdk
 # ENV JAVA_XMX                  <set maximum Java heap size>
 # ENV PORT                      <port to run server>
 # ENV MONITORING_URL
-# ENV KAFKA_SERVERS             <list of kafka servers>
+# ENV KAFKA_SERVERS            <kafka servers host name and port>
+# ENV KAFKA_SECURITY_PROTOCOL
+# ENV KAFKA_SASL_MECHANISM
+# ENV KAFKA_SASL_JAAS_CONFIG
+# ENV KAFKA_EXTRAS
 # ENV TRACING_URL
 # ENV PROCESSOR_SERVICE_BASEURI 
 # ENV READER_QUEUE_SIZE         <>
@@ -23,6 +27,10 @@ RUN echo "#!/usr/bin/env bash" > /opt/entrypoint.sh && \
     echo "echo \"PORT: \$PORT \" " >> /opt/entrypoint.sh && \
     echo "echo \"MONITORING_URL: \$MONITORING_URL \" " >> /opt/entrypoint.sh && \
     echo "echo \"KAFKA_SERVERS: \$KAFKA_SERVERS \" " >> /opt/entrypoint.sh && \
+    echo "echo \"KAFKA_SECURITY_PROTOCOL: \$KAFKA_SECURITY_PROTOCOL \" " >> /opt/entrypoint.sh && \
+    echo "echo \"KAFKA_SASL_MECHANISM: \$KAFKA_SASL_MECHANISM \" " >> /opt/entrypoint.sh && \
+    echo "echo \"KAFKA_SASL_JAAS_CONFIG: \$KAFKA_SASL_JAAS_CONFIG \" " >> /opt/entrypoint.sh && \
+    echo "echo \"KAFKA_EXTRAS: \$KAFKA_EXTRAS \" " >> /opt/entrypoint.sh && \
     echo "echo \"TRACING_URL: \$TRACING_URL \" " >> /opt/entrypoint.sh && \
     echo "echo \"PROCESSOR_SERVICE_BASEURI: \$PROCESSOR_SERVICE_BASEURI \" " >> /opt/entrypoint.sh && \
     echo "echo \"READER_QUEUE_SIZE: \$READER_QUEUE_SIZE \" " >> /opt/entrypoint.sh && \
@@ -34,6 +42,10 @@ RUN echo "#!/usr/bin/env bash" > /opt/entrypoint.sh && \
         -Dmanagement.server.port=\$PORT \
         -Dspring.boot.admin.client.url=\$MONITORING_URL \
         -Dspring.kafka.bootstrap-servers=\$KAFKA_SERVERS \
+        -Dspring.kafka.properties.security.protocol=\$KAFKA_SECURITY_PROTOCOL \
+        -Dspring.kafka.properties.sasl.mechanism=\$KAFKA_SASL_MECHANISM \
+        -Dspring.kafka.properties.sasl.jaas.config=\"\$KAFKA_SASL_JAAS_CONFIG\" \
+        \$KAFKA_EXTRAS \
         -Decomm.service.tracing.url=\$TRACING_URL \
         -Decomm.service.limiter.processor.baseUri=\$PROCESSOR_SERVICE_BASEURI \
         -Decomm.service.limiter.mps.reader.queue-size=\$READER_QUEUE_SIZE \
