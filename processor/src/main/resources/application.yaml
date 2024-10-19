@@ -37,12 +37,9 @@ spring:
       use-key-prefix: true
       key-prefix: ECOMM-LIMITER-MS
       time-to-live: 5000
-  data:
-    redis:
-      cluster:
-        nodes: 127.0.0.1:6391, 127.0.0.1:6392, 127.0.0.1:6393
-      connectTimeout: 5000
-      timeout: 1000
+  redis:
+    redisson:
+      file: classpath:redisson-dev.yaml
 
 management:
   server:
