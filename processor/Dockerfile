@@ -34,7 +34,6 @@ RUN echo "#!/usr/bin/env bash" > /opt/entrypoint.sh && \
     echo "echo \"KAFKA_SASL_JAAS_CONFIG: \$KAFKA_SASL_JAAS_CONFIG \" " >> /opt/entrypoint.sh && \
     echo "echo \"KAFKA_EXTRAS: \$KAFKA_EXTRAS \" " >> /opt/entrypoint.sh && \
     echo "echo \"TRACING_URL: \$TRACING_URL \" " >> /opt/entrypoint.sh && \
-    echo "echo \"REDIS_NODES: \$REDIS_NODES \" " >> /opt/entrypoint.sh && \
     echo "echo \"RATE_LIMIT: \$RATE_LIMIT \" " >> /opt/entrypoint.sh && \
     echo "echo \"===============================================\" " >> /opt/entrypoint.sh && \
     echo "" >> /opt/entrypoint.sh && \
@@ -47,7 +46,7 @@ RUN echo "#!/usr/bin/env bash" > /opt/entrypoint.sh && \
         -Dserver.port=\$PORT \
         -Dmanagement.server.port=\$PORT \
         -Dspring.boot.admin.client.url=\$MONITORING_URL \
-        -Dspring.redis.redisson.file=/opt/redisson.yaml \
+        -Dspring.redis.redisson.file=file:/opt/redisson.yaml \
         -Dspring.kafka.bootstrap-servers=\$KAFKA_SERVERS \
         -Dspring.kafka.properties.security.protocol=\$KAFKA_SECURITY_PROTOCOL \
         -Dspring.kafka.properties.sasl.mechanism=\$KAFKA_SASL_MECHANISM \
