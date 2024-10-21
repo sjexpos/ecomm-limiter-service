@@ -12,7 +12,7 @@
   <description>Spring boot App which process http request from gateway to decide rate limite.</description>
 
   <properties>
-    <start-class>io.oigres.ecomm.service.limiter.Bootstrap</start-class>
+    <start-class>io.oigres.ecomm.service.limiter.ProcessorBootstrap</start-class>
   </properties>
 
   <dependencies>

@@ -24,7 +24,7 @@ spring:
   application:
     name: limiter-kafka-mps
   kafka:
-    bootstrap-servers: localhost:9092
+    bootstrap-servers: localhost:9091,localhost:9092,localhost:9093
     consumer:
       auto-offset-reset: earliest
       enable-auto-commit: false
@@ -108,6 +108,9 @@ ecomm:
           purge-time: 50ms
       topics:
         incoming-request: incoming-request-topic
-        request-dlq: request-dlq
+        request-dlq:
+          name: request-dlq
+          partitions: 1
+          replication-factor: 2
       processor:
         baseUri: http://localhost:7071

@@ -42,7 +42,7 @@ public class ApplicationReadyInitializer implements ApplicationListener<Applicat
 		log.info("Group-ID: {}", environment.getProperty("spring.kafka.consumer.group-id"));
 		log.info("-------------------------- Topic ----------------------");
 		log.info("Topic name: {}", environment.getProperty("ecomm.service.limiter.topics.incoming-request"));
-		log.info("DLQ:        {}", environment.getProperty("ecomm.service.limiter.topics.request-dlq"));
+		log.info("DLQ:        {}", environment.getProperty("ecomm.service.limiter.topics.request-dlq.name"));
 		log.info("-------------------------- Reader ----------------------");
 		log.info("Queue timeout: {}", environment.getProperty("ecomm.service.limiter.mps.reader.queue-timeout"));
 		log.info("Purge time: {}", environment.getProperty("ecomm.service.limiter.mps.reader.purge-time"));

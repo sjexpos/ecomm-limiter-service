@@ -40,7 +40,7 @@ public class ApplicationReadyInitializer implements ApplicationListener<Applicat
 		log.info("--------------------------- Kafka -----------------------");
         log.info("Hosts: {}", environment.getProperty("spring.kafka.bootstrap-servers"));
 		log.info("-------------------------- Topic ----------------------");
-		log.info("Topic name: {}", environment.getProperty("ecomm.service.limiter.topics.blacklisted-users"));
+		log.info("Topic name: {}", environment.getProperty("ecomm.service.limiter.topics.blacklisted-users.name"));
 		log.info("-------------------------- Tracing ----------------------");
 		log.info("URL: {}", environment.getProperty("ecomm.service.tracing.url"));
         log.info("********************************************************************");

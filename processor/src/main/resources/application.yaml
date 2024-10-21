@@ -24,10 +24,11 @@ spring:
   application:
     name: limiter-processor
   kafka:
-    bootstrap-servers: localhost:9092
+    bootstrap-servers: localhost:9091,localhost:9092,localhost:9093
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      observation-enabled: true
     template:
       observation-enabled: true
   cache:
@@ -87,7 +88,10 @@ ecomm:
       version: ${project.version}
       rate-limit: 15
       topics:
-        blacklisted-users: blacklisted-users-topic
+        blacklisted-users:
+          name: blacklisted-users-topic
+          partitions: 10
+          replication-factor: 2
     tracing:
       url: http://localhost:4318/v1/traces
 
