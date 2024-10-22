@@ -4,7 +4,7 @@ on:
     
 jobs:
   release:
-    uses: sjexpos/gh-actions/.github/workflows/maven-releasing.yaml@main
+    uses: sjexpos/ecomm-cicd-actions/.github/workflows/maven-releasing.yaml@main
     with:
       group_id: io.oigres.ecomm
       artifact_id: limiter-service
