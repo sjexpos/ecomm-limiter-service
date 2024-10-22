@@ -78,6 +78,12 @@ logging:
     console: '%clr(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %clr(%-5p) [${spring.application.name}] [%clr(%15.15t){faint}] [%clr(%32X{traceId}-%16X{spanId}){blue}] %clr(%40.40logger{5.10}:%-4L){cyan} : %m %n'
   level:
     io.oigres.ecomm.service.limiter: INFO
+    # Avoid kafka verbose INFO logging
+    org.apache.kafka.clients.admin.AdminClientConfig: WARN
+    org.apache.kafka.common.utils.AppInfoParser: WARN
+    org.apache.kafka.common.metrics.Metrics: WARN
+    org.apache.kafka.clients.consumer.ConsumerConfig: WARN
+    org.apache.kafka.clients.producer.ProducerConfig: WARN
 
 ecomm:
   termsOfService: https://ecomm.oigres.io/terms/

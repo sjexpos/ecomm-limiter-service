@@ -62,6 +62,7 @@ public class RequestServiceImpl implements RequestService {
                 .from(blockedFrom)
                 .to(blockedTo)
                 .build();
+        log.info("User '{}' will be blocked from {} to {}", blackedInfo.getUserId(), blackedInfo.getFrom(), blackedInfo.getTo());
         this.kafkaTemplate.sendDefault(userId, blackedInfo);
         return blackedInfo;
     }
