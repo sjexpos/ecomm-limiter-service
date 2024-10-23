@@ -38,7 +38,7 @@ spring:
         spring.deserializer.value.delegate.class: org.springframework.kafka.support.serializer.JsonDeserializer
       observation-enabled: true
     listener:
-      ack-mode: MANUAL
+      ack-mode: MANUAL # MANUAL_IMMEDIATE
       observation-enabled: true
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer

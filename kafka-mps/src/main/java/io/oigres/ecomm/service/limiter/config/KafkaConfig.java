@@ -36,20 +36,20 @@ public class KafkaConfig {
         return factory;
     }
 
-    @Bean
-    public KafkaAdmin admin(@Value("${spring.kafka.bootstrap-servers}") String kafkaBrokers) {
-        Map<String, Object> configs = new HashMap<>();
-        configs.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaBrokers);
-        return new KafkaAdmin(configs);
-    }
+//    @Bean
+//    public KafkaAdmin admin(@Value("${spring.kafka.bootstrap-servers}") String kafkaBrokers) {
+//        Map<String, Object> configs = new HashMap<>();
+//        configs.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaBrokers);
+//        return new KafkaAdmin(configs);
+//    }
 
     @Bean
     public KafkaTemplate<String, Object> messageKafkaTemplate(
             ProducerFactory<String, Object> messageProducerFactory,
-            KafkaAdmin kafkaAdmin,
+//            KafkaAdmin kafkaAdmin,
             RequestDLQTopicProperties topicConfig
     ) {
-        kafkaAdmin.createOrModifyTopics(new NewTopic(topicConfig.getName(), topicConfig.getPartitions(), topicConfig.getReplicationFactor()));
+//        kafkaAdmin.createOrModifyTopics(new NewTopic(topicConfig.getName(), topicConfig.getPartitions(), topicConfig.getReplicationFactor()));
         KafkaTemplate<String, Object> template = new KafkaTemplate<>(messageProducerFactory);
         template.setDefaultTopic(topicConfig.getName());
         template.setObservationEnabled(true);
