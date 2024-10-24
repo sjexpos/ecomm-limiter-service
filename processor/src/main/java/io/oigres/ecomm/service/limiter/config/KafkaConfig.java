@@ -31,6 +31,7 @@ public class KafkaConfig {
 //            KafkaAdmin kafkaAdmin,
             BlacklistedUserTopicProperties topicConfig
     ) {
+// This topic creation from code requires more permission on Kafka, so it is commented
 //        kafkaAdmin.createOrModifyTopics(new NewTopic(topicConfig.getName(), topicConfig.getPartitions(), topicConfig.getReplicationFactor()));
         KafkaTemplate<String, BlackedInfo> template = new KafkaTemplate<>(messageProducerFactory);
         template.setDefaultTopic(topicConfig.getName());

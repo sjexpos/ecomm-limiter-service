@@ -49,6 +49,7 @@ public class KafkaConfig {
 //            KafkaAdmin kafkaAdmin,
             RequestDLQTopicProperties topicConfig
     ) {
+// This topic creation from code requires more permission on Kafka, so it is commented
 //        kafkaAdmin.createOrModifyTopics(new NewTopic(topicConfig.getName(), topicConfig.getPartitions(), topicConfig.getReplicationFactor()));
         KafkaTemplate<String, Object> template = new KafkaTemplate<>(messageProducerFactory);
         template.setDefaultTopic(topicConfig.getName());
