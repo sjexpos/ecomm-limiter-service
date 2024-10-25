@@ -73,6 +73,12 @@
       <artifactId>opentelemetry-exporter-otlp</artifactId>
     </dependency>
 
+    <!-- Prometheus -->
+    <dependency>
+      <groupId>io.micrometer</groupId>
+      <artifactId>micrometer-registry-prometheus</artifactId>
+    </dependency>
+
     <!-- Cloud Native Spring Admin connector -->
     <dependency>
       <groupId>de.codecentric</groupId>

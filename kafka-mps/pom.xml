@@ -51,6 +51,12 @@
       <artifactId>opentelemetry-exporter-otlp</artifactId>
     </dependency>
 
+    <!-- Prometheus -->
+    <dependency>
+      <groupId>io.micrometer</groupId>
+      <artifactId>micrometer-registry-prometheus</artifactId>
+    </dependency>
+
     <!-- Resilience4j (Retry, Circuit Breaker, Rate Limiter, Bulkhead, and Time Limiter) -->
     <dependency>
       <groupId>org.springframework.cloud</groupId>
