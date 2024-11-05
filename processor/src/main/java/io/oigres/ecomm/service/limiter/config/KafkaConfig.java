@@ -1,5 +1,6 @@
 package io.oigres.ecomm.service.limiter.config;
 
+import io.micrometer.common.KeyValues;
 import io.oigres.ecomm.service.limiter.BlackedInfo;
 import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.admin.NewTopic;
@@ -10,6 +11,8 @@ import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.kafka.core.KafkaAdmin;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.core.ProducerFactory;
+import org.springframework.kafka.support.micrometer.KafkaRecordSenderContext;
+import org.springframework.kafka.support.micrometer.KafkaTemplateObservationConvention;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -36,6 +39,13 @@ public class KafkaConfig {
         KafkaTemplate<String, BlackedInfo> template = new KafkaTemplate<>(messageProducerFactory);
         template.setDefaultTopic(topicConfig.getName());
         template.setObservationEnabled(true);
+        template.setObservationConvention(new KafkaTemplateObservationConvention() {
+            @Override
+            public KeyValues getLowCardinalityKeyValues(KafkaRecordSenderContext context) {
+                return KeyValues.of("custom_tag_topic", context.getDestination(),
+                        "custom_tag_record_id", String.valueOf(context.getRecord().key()));
+            }
+        });
         return template;
     }
 
