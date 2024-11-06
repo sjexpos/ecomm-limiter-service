@@ -62,7 +62,7 @@
       <groupId>org.springframework.cloud</groupId>
       <artifactId>spring-cloud-starter-circuitbreaker-resilience4j</artifactId>
     </dependency>
-    <dependency> <!-- required to Resilience4j annotations work -->
+    <dependency> <!-- required to Resilience4j and micrometer annotations work -->
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-aop</artifactId>
     </dependency>
