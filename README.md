@@ -1,11 +1,11 @@
 
 # Limiter service
 
-[![GitHub release](https://img.shields.io/github/release/sjexpos/ecomm-limiter.svg?style=plastic)](https://github.com/sjexpos/ecomm-limiter/releases/latest)
-[![CI workflow](https://img.shields.io/github/actions/workflow/status/sjexpos/ecomm-limiter/ci.yaml?branch=main&label=ci&logo=github&style=plastic)](https://github.com/sjexpos/ecomm-limiter/actions?workflow=CI)
-[![Codecov](https://img.shields.io/codecov/c/github/sjexpos/ecomm-limiter?logo=codecov&style=plastic)](https://codecov.io/gh/sjexpos/ecomm-limiter)
-[![Issues](https://img.shields.io/github/issues-search/sjexpos/ecomm-limiter?query=is%3Aopen&label=issues&style=plastic)](https://github.com/sjexpos/ecomm-limiter/issues)
-[![Commits](https://img.shields.io/github/last-commit/sjexpos/ecomm-limiter?logo=github&style=plastic)](https://github.com/sjexpos/ecomm-limiter/commits)
+[![GitHub release](https://img.shields.io/github/release/sjexpos/ecomm-limiter-service.svg?style=plastic)](https://github.com/sjexpos/ecomm-limiter-service/releases/latest)
+[![CI workflow](https://img.shields.io/github/actions/workflow/status/sjexpos/ecomm-limiter-service/ci.yaml?branch=main&label=ci&logo=github&style=plastic)](https://github.com/sjexpos/ecomm-limiter-service/actions?workflow=CI)
+[![Codecov](https://img.shields.io/codecov/c/github/sjexpos/ecomm-limiter-service?logo=codecov&style=plastic)](https://codecov.io/gh/sjexpos/ecomm-limiter-service)
+[![Issues](https://img.shields.io/github/issues-search/sjexpos/ecomm-limiter-service?query=is%3Aopen&label=issues&style=plastic)](https://github.com/sjexpos/ecomm-limiter-service/issues)
+[![Commits](https://img.shields.io/github/last-commit/sjexpos/ecomm-limiter-service?logo=github&style=plastic)](https://github.com/sjexpos/ecomm-limiter-service/commits)
 
 
 [![Kakfa MPS Docker pulls](https://img.shields.io/docker/pulls/sjexposecomm/limiter-kafka-mps?logo=docker&style=plastic&label=Kakfa%20MPS%20pulls)](https://hub.docker.com/r/sjexposecomm/limiter-kafka-mps)

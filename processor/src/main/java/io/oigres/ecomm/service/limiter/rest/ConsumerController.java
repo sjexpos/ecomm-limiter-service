@@ -23,7 +23,7 @@ import org.springframework.web.bind.annotation.*;
 public class ConsumerController {
     private final RequestService requestService;
 
-    @Operation(summary = "Consume RequestAudit")
+    @Operation(summary = "Consume RequestAudit", description = "This endpoint is called to process a user request")
     @PostMapping(value = "/request", produces = MimeTypeUtils.APPLICATION_JSON_VALUE)
     @ResponseStatus(HttpStatus.OK)
     public ResponseEntity<String> consumeRequest(@RequestBody @Valid RequestAudit requestAudit) {
@@ -31,7 +31,7 @@ public class ConsumerController {
         return ResponseEntity.ok("DONE");
     }
 
-    @Operation(summary = "Consume ResponseAudit")
+    @Operation(summary = "Consume ResponseAudit", description = "This endpoint is called to process a user response")
     @PostMapping(value = "/response", produces = MimeTypeUtils.APPLICATION_JSON_VALUE)
     @ResponseStatus(HttpStatus.OK)
     public ResponseEntity<String> consumeResponse(@RequestBody @Valid ResponseAudit responseAudit) {
