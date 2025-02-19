@@ -22,7 +22,6 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.observation.annotation.Observed;
 import io.oigres.ecomm.service.limiter.config.MessageReaderProperties;
 import io.oigres.ecomm.service.limiter.mps.KafkaMessage;
-import io.opentelemetry.context.Scope;
 import java.time.Duration;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -74,7 +73,7 @@ public class MessageReader {
   public KafkaMessage poll(Duration timeout) throws InterruptedException {
     KafkaMessage msg = this.orderIterator.next(timeout);
     if (msg != null) {
-      Scope scope = msg.getContext().makeCurrent(); // Opentelemetry propagation
+      msg.getContext().makeCurrent(); // Opentelemetry propagation
       if (msg.getRecord() != null && msg.getRecord().key() != null) {
         this.inflightSet.put(msg.getRecord().key(), msg);
       } else {

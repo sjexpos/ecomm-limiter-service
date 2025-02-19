@@ -28,6 +28,6 @@ public class RequestController {
 
   @GetMapping("/request/{user_id}")
   public String getRequestByUser(@PathVariable("user_id") String userId) {
-    return new String();
+    return "";
   }
 }

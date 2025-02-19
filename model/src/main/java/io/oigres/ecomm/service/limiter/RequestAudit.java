@@ -21,6 +21,8 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.stream.Collectors;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -56,4 +58,25 @@ public class RequestAudit {
   private Map<String, List<HttpCookie>> cookies;
   private String body;
   private LocalDateTime arrived;
+
+  public Map<String, List<String>> getQuery() {
+    return Objects.isNull(query)
+        ? null
+        : this.query.entrySet().stream()
+            .collect(Collectors.toMap(Map.Entry::getKey, e -> List.copyOf(e.getValue())));
+  }
+
+  public Map<String, List<String>> getHeaders() {
+    return Objects.isNull(headers)
+        ? null
+        : this.headers.entrySet().stream()
+            .collect(Collectors.toMap(Map.Entry::getKey, e -> List.copyOf(e.getValue())));
+  }
+
+  public Map<String, List<HttpCookie>> getCookies() {
+    return Objects.isNull(cookies)
+        ? null
+        : this.cookies.entrySet().stream()
+            .collect(Collectors.toMap(Map.Entry::getKey, e -> List.copyOf(e.getValue())));
+  }
 }

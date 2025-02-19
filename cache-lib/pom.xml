@@ -21,6 +21,9 @@
     <maven.compiler.target>${java.version}</maven.compiler.target>
     <maven-enforcer-plugin.version>3.5.0</maven-enforcer-plugin.version>
     <spotless-maven-plugin.version>2.43.0</spotless-maven-plugin.version>
+    <duplicate-finder-maven-plugin.version>2.0.1</duplicate-finder-maven-plugin.version>
+    <modernizer-maven-plugin.version>3.1.0</modernizer-maven-plugin.version>
+    <spotbugs-maven-plugin.version>4.8.6.2</spotbugs-maven-plugin.version>
     <maven-compiler-plugin.version>3.13.0</maven-compiler-plugin.version>
     <maven-deploy-plugin.version>3.1.2</maven-deploy-plugin.version>
     <git-commit-id-plugin.version>4.9.10</git-commit-id-plugin.version>
@@ -164,6 +167,61 @@
             <phase>validate</phase>
             <goals>
               <goal>apply</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.basepom.maven</groupId>
+        <artifactId>duplicate-finder-maven-plugin</artifactId>
+        <version>${duplicate-finder-maven-plugin.version}</version>
+        <configuration>
+          <checkCompileClasspath>true</checkCompileClasspath>
+          <checkRuntimeClasspath>true</checkRuntimeClasspath>
+          <checkTestClasspath>true</checkTestClasspath>
+          <failBuildInCaseOfEqualContentConflict>true</failBuildInCaseOfEqualContentConflict>
+          <failBuildInCaseOfConflict>true</failBuildInCaseOfConflict>
+        </configuration>
+        <executions>
+          <execution>
+            <id>run-duplicate-finder</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>check</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.gaul</groupId>
+        <artifactId>modernizer-maven-plugin</artifactId>
+        <version>${modernizer-maven-plugin.version}</version>
+        <configuration>
+          <javaVersion>${maven.compiler.source}</javaVersion>
+        </configuration>
+        <executions>
+          <execution>
+            <id>run-modernizer</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>modernizer</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>com.github.spotbugs</groupId>
+        <artifactId>spotbugs-maven-plugin</artifactId>
+        <version>${spotbugs-maven-plugin.version}</version>
+        <configuration>
+          <jvmArgs>-Dfindbugs.assertionmethods=org.apache.commons.lang3.Validate.notNull</jvmArgs>
+        </configuration>
+        <executions>
+          <execution>
+            <id>run-spotbugs</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>check</goal>
             </goals>
           </execution>
         </executions>

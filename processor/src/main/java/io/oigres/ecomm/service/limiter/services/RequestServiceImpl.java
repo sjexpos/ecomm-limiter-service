@@ -132,8 +132,9 @@ public class RequestServiceImpl implements RequestService {
       time = time.minusMinutes(1);
     }
     if (data.isPresent()) {
-      data.get().setResponse(response);
-      data.get().setResponseArrived(time);
+      RequestData requestData = data.orElseThrow();
+      requestData.setResponse(response);
+      requestData.setResponseArrived(time);
       this.requestRepository.storeUserRequests(response.getUserId(), time, bucket);
     }
   }

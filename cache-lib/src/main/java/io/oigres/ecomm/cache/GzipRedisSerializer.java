@@ -55,7 +55,9 @@ public class GzipRedisSerializer<T> implements RedisSerializer<T> {
       @Cleanup ByteArrayOutputStream bos = new ByteArrayOutputStream();
       @Cleanup GZIPOutputStream gzip = new GZIPOutputStream(bos);
 
-      gzip.write(bytes);
+      if (bytes != null) {
+        gzip.write(bytes);
+      }
       gzip.close();
       byte[] result = bos.toByteArray();
 

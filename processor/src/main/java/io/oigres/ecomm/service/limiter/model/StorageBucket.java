@@ -33,4 +33,8 @@ public class StorageBucket {
   private final String userId;
   private final LocalDateTime minute;
   private final List<RequestData> requests = new LinkedList<>();
+
+  public List<RequestData> getRequests() {
+    return List.copyOf(requests);
+  }
 }
