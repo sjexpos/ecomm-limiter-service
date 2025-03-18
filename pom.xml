@@ -29,6 +29,7 @@
     <maven-compiler-plugin.version>3.13.0</maven-compiler-plugin.version>
     <maven-resources-plugin.version>3.3.1</maven-resources-plugin.version>
     <maven-surefire-plugin.version>3.3.1</maven-surefire-plugin.version>
+    <maven-surefire-report-plugin.version>3.3.1</maven-surefire-report-plugin.version>
     <maven-failsafe-plugin.version>3.3.1</maven-failsafe-plugin.version>
     <maven-jar-plugin.version>3.4.2</maven-jar-plugin.version>
     <maven-deploy-plugin.version>3.1.2</maven-deploy-plugin.version>
@@ -36,6 +37,12 @@
     <build-helper-maven-plugin.version>3.6.0</build-helper-maven-plugin.version>
     <jacoco-maven-plugin.version>0.8.12</jacoco-maven-plugin.version>
     <spring-boot-maven-plugin.version>3.3.2</spring-boot-maven-plugin.version>
+    <maven-antrun-plugin.version>3.1.0</maven-antrun-plugin.version>
+    <maven-project-info-reports-plugin.version>3.6.2</maven-project-info-reports-plugin.version>
+    <maven-site-plugin.version>3.12.1</maven-site-plugin.version>
+    <pitest-maven.version>1.16.2</pitest-maven.version>
+    <pitest-junit5-plugin.version>1.2.1</pitest-junit5-plugin.version>
+    <pitest.skip>false</pitest.skip>
 
     <spring-boot.version>3.3.2</spring-boot.version>
     <spring-kafka.version>3.2.3</spring-kafka.version>
@@ -59,6 +66,7 @@
     <module>kafka-mps</module>
     <module>processor</module>
     <module>cache-lib</module>
+    <module>.mvn-reports</module>
   </modules>
 
   <scm>
@@ -151,7 +159,7 @@
       </dependency>
       <dependency>
         <groupId>io.oigres.ecomm</groupId>
-        <artifactId>limiter-service-spring-boot</artifactId>
+        <artifactId>limiter-service-processor</artifactId>
         <version>${project.version}</version>
       </dependency>
 
@@ -256,6 +264,31 @@
         </plugin>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-surefire-report-plugin</artifactId>
+          <version>${maven-surefire-report-plugin.version}</version>
+          <configuration>
+            <alwaysGenerateSurefireReport>true</alwaysGenerateSurefireReport>
+            <alwaysGenerateFailsafeReport>true</alwaysGenerateFailsafeReport>
+          </configuration>
+          <executions>
+            <execution>
+              <id>unit-tests</id>
+              <phase>test</phase>
+              <goals>
+                <goal>report-only</goal>
+              </goals>
+            </execution>
+            <execution>
+              <id>integration-tests</id>
+              <phase>integration-test</phase>
+              <goals>
+                <goal>report-only</goal>
+              </goals>
+            </execution>
+          </executions>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-failsafe-plugin</artifactId>
           <version>${maven-failsafe-plugin.version}</version>
         </plugin>
@@ -273,6 +306,92 @@
           <groupId>org.jacoco</groupId>
           <artifactId>jacoco-maven-plugin</artifactId>
           <version>${jacoco-maven-plugin.version}</version>
+          <configuration>
+            <output>file</output>
+            <append>true</append>
+          </configuration>
+          <executions>
+            <execution>
+              <id>jacoco-initialize</id>
+              <goals>
+                <goal>prepare-agent</goal>
+              </goals>
+            </execution>
+            <execution>
+              <id>jacoco-initialize-integration</id>
+              <goals>
+                <goal>prepare-agent-integration</goal>
+              </goals>
+            </execution>
+          </executions>
+        </plugin>
+        <plugin>
+          <groupId>org.pitest</groupId>
+          <artifactId>pitest-maven</artifactId>
+          <version>${pitest-maven.version}</version>
+          <configuration>
+            <jvmArgs>
+              <jvmArg>-XX:TieredStopAtLevel=1</jvmArg>
+            </jvmArgs>
+            <mutators>
+              <!-- Defauls -->
+              <mutator>CONDITIONALS_BOUNDARY</mutator>
+              <mutator>INCREMENTS</mutator>
+              <mutator>INVERT_NEGS</mutator>
+              <mutator>MATH</mutator>
+              <mutator>NEGATE_CONDITIONALS</mutator>
+              <mutator>VOID_METHOD_CALLS</mutator>
+              <mutator>EMPTY_RETURNS</mutator>
+              <mutator>FALSE_RETURNS</mutator>
+              <mutator>TRUE_RETURNS</mutator>
+              <mutator>NULL_RETURNS</mutator>
+              <mutator>PRIMITIVE_RETURNS</mutator>
+              <!-- Optionals -->
+              <!--
+              <mutator>CONSTRUCTOR_CALLS</mutator>
+              <mutator>INLINE_CONSTS</mutator>
+              <mutator>NON_VOID_METHOD_CALLS</mutator>
+              <mutator>REMOVE_CONDITIONALS_EQUAL_IF</mutator>
+              <mutator>REMOVE_CONDITIONALS_EQUAL_ELSE</mutator>
+              <mutator>REMOVE_CONDITIONALS_ORDER_IF</mutator>
+              <mutator>REMOVE_CONDITIONALS_ORDER_ELSE</mutator>
+              <mutator>REMOVE_INCREMENTS</mutator>
+              -->
+              <!-- Experimental -->
+              <!--
+              <mutator>EXPERIMENTAL_ARGUMENT_PROPAGATION</mutator>
+              <mutator>EXPERIMENTAL_BIG_DECIMAL</mutator>
+              <mutator>EXPERIMENTAL_BIG_INTEGER</mutator>
+              <mutator>EXPERIMENTAL_NAKED_RECEIVER</mutator>
+              <mutator>EXPERIMENTAL_MEMBER_VARIABLE</mutator>
+              <mutator>EXPERIMENTAL_SWITCH</mutator>
+              -->
+            </mutators>
+            <mutationThreshold>0</mutationThreshold>
+            <exportLineCoverage>true</exportLineCoverage>
+            <skip>${pitest.skip}</skip>
+            <timestampedReports>false</timestampedReports>
+            <outputFormats><value>XML</value><value>HTML</value></outputFormats>
+            <verbose>false</verbose> <!-- Set to true for noisy output -->
+            <verbosity>NO_SPINNER</verbosity> <!-- For CI -->
+            <withHistory>true</withHistory>
+          </configuration>
+          <executions>
+            <execution>
+              <id>pitest-mutation-coverage</id>
+              <phase>verify</phase>
+              <goals>
+                <goal>mutationCoverage</goal>
+              </goals>
+            </execution>
+          </executions>
+          <dependencies>
+            <dependency>
+              <groupId>org.pitest</groupId>
+              <artifactId>pitest-junit5-plugin</artifactId>
+              <version>${pitest-junit5-plugin.version}</version>
+            </dependency>
+          </dependencies>
         </plugin>
         <plugin>
           <groupId>org.springframework.boot</groupId>
@@ -283,6 +402,21 @@
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-deploy-plugin</artifactId>
           <version>${maven-deploy-plugin.version}</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-antrun-plugin</artifactId>
+          <version>${maven-antrun-plugin.version}</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-project-info-reports-plugin</artifactId>
+          <version>${maven-project-info-reports-plugin.version}</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-site-plugin</artifactId>
+          <version>${maven-site-plugin.version}</version>
         </plugin>
       </plugins>
     </pluginManagement>
@@ -342,7 +476,6 @@
           </execution>
         </executions>
       </plugin>
-
       <plugin>
         <groupId>org.basepom.maven</groupId>
         <artifactId>duplicate-finder-maven-plugin</artifactId>
@@ -358,7 +491,7 @@
               <artifactId>spring-aop</artifactId>
             </dependency>
           </ignoredDependencies>
-          <ignoredResourcePatterns>COPYRIGHT.txt,git.properties</ignoredResourcePatterns>
+          <ignoredResourcePatterns>COPYRIGHT.txt,git.properties,application.yaml</ignoredResourcePatterns>
         </configuration>
         <executions>
           <execution>
@@ -392,6 +525,8 @@
         <configuration>
           <excludeFilterFile>spotbugs-exclude.xml</excludeFilterFile>
           <jvmArgs>-Dfindbugs.assertionmethods=org.apache.commons.lang3.Validate.notNull</jvmArgs>
+          <failOnError>true</failOnError>
+          <htmlOutput>true</htmlOutput>
         </configuration>
         <executions>
           <execution>
@@ -403,7 +538,6 @@
           </execution>
         </executions>
       </plugin>
-
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
@@ -413,33 +547,6 @@
           <encoding>${project.build.sourceEncoding}</encoding>
           <parameters>true</parameters> <!-- store method argument names on byte code. Useful for spring SPEL -->
         </configuration>
-      </plugin>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-surefire-plugin</artifactId>
-      </plugin>
-      <plugin>
-        <groupId>org.jacoco</groupId>
-        <artifactId>jacoco-maven-plugin</artifactId>
-        <configuration>
-          <output>file</output>
-          <append>true</append>
-        </configuration>
-        <executions>
-          <execution>
-            <id>jacoco-initialize</id>
-            <goals>
-              <goal>prepare-agent</goal>
-            </goals>
-          </execution>
-          <execution>
-            <id>jacoco-site</id>
-            <phase>verify</phase>
-            <goals>
-              <goal>report</goal>
-            </goals>
-          </execution>
-        </executions>
       </plugin>
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
@@ -470,8 +577,46 @@
           <skip>true</skip>
         </configuration>
       </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-antrun-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>copy-reports</id>
+            <phase>site</phase>
+            <goals>
+              <goal>run</goal>
+            </goals>
+            <configuration>
+              <target>
+                <mkdir dir="${maven.multiModuleProjectDirectory}/target/site/${project.artifactId}"/>
+                <copy  todir="${maven.multiModuleProjectDirectory}/target/site/${project.artifactId}">
+                  <fileset dir="target/site" includes="**/*" erroronmissingdir="false"/>
+                  <fileset dir="target" includes="spotbugs.html" erroronmissingdir="false"/>
+                </copy>
+              </target>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
     </plugins>
   </build>
+
+  <reporting>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-project-info-reports-plugin</artifactId>
+        <reportSets>
+          <reportSet>
+            <reports>
+              <report>index</report>
+            </reports>
+          </reportSet>
+        </reportSets>
+      </plugin>
+    </plugins>
+  </reporting>
 
 </project>
 

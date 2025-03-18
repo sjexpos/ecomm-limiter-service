@@ -13,7 +13,7 @@
 
 
 [![Processor Docker pulls](https://img.shields.io/docker/pulls/sjexposecomm/limiter-processor?logo=docker&style=plastic&label=Processor%20pulls)](https://hub.docker.com/r/sjexposecomm/limiter-processor)
-[![Processor Docker size](https://img.shields.io/docker/image-size/sjexposecomm/limiter-processor?logo=docker&style=plastic&label=Processor%20pulls)](https://hub.docker.com/r/sjexposecomm/limiter-processor/tags)
+[![Processor Docker size](https://img.shields.io/docker/image-size/sjexposecomm/limiter-processor?logo=docker&style=plastic&label=Processor%size)](https://hub.docker.com/r/sjexposecomm/limiter-processor/tags)
 
 ![](docs/images/arch-limiter.png)
 
