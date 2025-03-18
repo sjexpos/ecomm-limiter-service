@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../jacoco-resources/report.gif" type="image/gif"/><title>ConsumerController.java</title><link rel="stylesheet" href="../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../index.html" class="el_report">Aggregated Reports</a> &gt; <a href="../index.html" class="el_bundle">limiter-service-processor</a> &gt; <a href="index.source.html" class="el_package">io.oigres.ecomm.service.limiter.rest</a> &gt; <span class="el_source">ConsumerController.java</span></div><h1>ConsumerController.java</h1><pre class="source lang-java linenums">/**********
+ This project is free software; you can redistribute it and/or modify it under
+ the terms of the GNU General Public License as published by the
+ Free Software Foundation; either version 3.0 of the License, or (at your
+ option) any later version. (See &lt;https://www.gnu.org/licenses/gpl-3.0.html&gt;.)
+
+ This project is distributed in the hope that it will be useful, but WITHOUT
+ ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ more details.
+
+ You should have received a copy of the GNU General Public License
+ along with this project; if not, write to the Free Software Foundation, Inc.,
+ 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
+ **********/
+// Copyright (c) 2024-2025 Sergio Exposito.  All rights reserved.              
+
+package io.oigres.ecomm.service.limiter.rest;
+
+import io.oigres.ecomm.service.limiter.RequestAudit;
+import io.oigres.ecomm.service.limiter.ResponseAudit;
+import io.oigres.ecomm.service.limiter.services.RequestService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.util.MimeTypeUtils;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping(&quot;/api/v1/consume&quot;)
+@Tag(name = &quot;Consume&quot;, description = &quot; &quot;)
+<span class="nc" id="L37">@Slf4j</span>
+@Validated
+@RequiredArgsConstructor
+public class ConsumerController {
+  private final RequestService requestService;
+
+  @Operation(
+      summary = &quot;Consume RequestAudit&quot;,
+      description = &quot;This endpoint is called to process a user request&quot;)
+  @PostMapping(value = &quot;/request&quot;, produces = MimeTypeUtils.APPLICATION_JSON_VALUE)
+  @ResponseStatus(HttpStatus.OK)
+  public ResponseEntity&lt;String&gt; consumeRequest(@RequestBody @Valid RequestAudit requestAudit) {
+<span class="nc" id="L49">    this.requestService.requestArrive(requestAudit);</span>
+<span class="nc" id="L50">    return ResponseEntity.ok(&quot;DONE&quot;);</span>
+  }
+
+  @Operation(
+      summary = &quot;Consume ResponseAudit&quot;,
+      description = &quot;This endpoint is called to process a user response&quot;)
+  @PostMapping(value = &quot;/response&quot;, produces = MimeTypeUtils.APPLICATION_JSON_VALUE)
+  @ResponseStatus(HttpStatus.OK)
+  public ResponseEntity&lt;String&gt; consumeResponse(@RequestBody @Valid ResponseAudit responseAudit) {
+<span class="nc" id="L59">    this.requestService.responseArrive(responseAudit);</span>
+<span class="nc" id="L60">    return ResponseEntity.ok(&quot;DONE&quot;);</span>
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>RequestAudit.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Model</a> &gt; <a href="index.source.html" class="el_package">io.oigres.ecomm.service.limiter</a> &gt; <span class="el_source">RequestAudit.java</span></div><h1>RequestAudit.java</h1><pre class="source lang-java linenums">/**********
+ This project is free software; you can redistribute it and/or modify it under
+ the terms of the GNU General Public License as published by the
+ Free Software Foundation; either version 3.0 of the License, or (at your
+ option) any later version. (See &lt;https://www.gnu.org/licenses/gpl-3.0.html&gt;.)
+
+ This project is distributed in the hope that it will be useful, but WITHOUT
+ ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ more details.
+
+ You should have received a copy of the GNU General Public License
+ along with this project; if not, write to the Free Software Foundation, Inc.,
+ 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
+ **********/
+// Copyright (c) 2024-2025 Sergio Exposito.  All rights reserved.              
+
+package io.oigres.ecomm.service.limiter;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.stream.Collectors;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+
+@Builder
+@Getter
+@AllArgsConstructor
+@NoArgsConstructor
+public class RequestAudit {
+
+  @Builder
+  @Getter
+  @AllArgsConstructor
+  @NoArgsConstructor
+  public static class HttpCookie {
+    private String name;
+    private String value;
+  }
+
+  private String id;
+
+  @JsonProperty(&quot;user_id&quot;)
+  private String userId;
+
+  @JsonProperty(&quot;remote_addr&quot;)
+  private String remoteAddr;
+
+  private String method;
+  private String path;
+  private Map&lt;String, List&lt;String&gt;&gt; query;
+  private Map&lt;String, List&lt;String&gt;&gt; headers;
+  private Map&lt;String, List&lt;HttpCookie&gt;&gt; cookies;
+  private String body;
+  private LocalDateTime arrived;
+
+  public Map&lt;String, List&lt;String&gt;&gt; getQuery() {
+<span class="pc bpc" id="L63" title="1 of 2 branches missed.">    return Objects.isNull(query)</span>
+<span class="nc" id="L64">        ? null</span>
+<span class="fc" id="L65">        : this.query.entrySet().stream()</span>
+<span class="fc" id="L66">            .collect(Collectors.toMap(Map.Entry::getKey, e -&gt; List.copyOf(e.getValue())));</span>
+  }
+
+  public Map&lt;String, List&lt;String&gt;&gt; getHeaders() {
+<span class="pc bpc" id="L70" title="1 of 2 branches missed.">    return Objects.isNull(headers)</span>
+<span class="nc" id="L71">        ? null</span>
+<span class="fc" id="L72">        : this.headers.entrySet().stream()</span>
+<span class="fc" id="L73">            .collect(Collectors.toMap(Map.Entry::getKey, e -&gt; List.copyOf(e.getValue())));</span>
+  }
+
+  public Map&lt;String, List&lt;HttpCookie&gt;&gt; getCookies() {
+<span class="pc bpc" id="L77" title="1 of 2 branches missed.">    return Objects.isNull(cookies)</span>
+<span class="nc" id="L78">        ? null</span>
+<span class="fc" id="L79">        : this.cookies.entrySet().stream()</span>
+<span class="fc" id="L80">            .collect(Collectors.toMap(Map.Entry::getKey, e -&gt; List.copyOf(e.getValue())));</span>
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

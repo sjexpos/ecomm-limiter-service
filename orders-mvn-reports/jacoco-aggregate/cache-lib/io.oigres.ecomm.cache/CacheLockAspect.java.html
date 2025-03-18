@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../jacoco-resources/report.gif" type="image/gif"/><title>CacheLockAspect.java</title><link rel="stylesheet" href="../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../index.html" class="el_report">Aggregated Reports</a> &gt; <a href="../index.html" class="el_bundle">cache-lib</a> &gt; <a href="index.source.html" class="el_package">io.oigres.ecomm.cache</a> &gt; <span class="el_source">CacheLockAspect.java</span></div><h1>CacheLockAspect.java</h1><pre class="source lang-java linenums">/**********
+ This project is free software; you can redistribute it and/or modify it under
+ the terms of the GNU General Public License as published by the
+ Free Software Foundation; either version 3.0 of the License, or (at your
+ option) any later version. (See &lt;https://www.gnu.org/licenses/gpl-3.0.html&gt;.)
+
+ This project is distributed in the hope that it will be useful, but WITHOUT
+ ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ more details.
+
+ You should have received a copy of the GNU General Public License
+ along with this project; if not, write to the Free Software Foundation, Inc.,
+ 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
+ **********/
+// Copyright (c) 2024-2025 Sergio Exposito.  All rights reserved.              
+
+package io.oigres.ecomm.cache;
+
+import java.util.List;
+import java.util.concurrent.locks.Lock;
+import lombok.extern.slf4j.Slf4j;
+import org.aspectj.lang.ProceedingJoinPoint;
+import org.aspectj.lang.annotation.Around;
+import org.aspectj.lang.annotation.Aspect;
+
+/**
+ * Aspect class to process @CacheLock annotation
+ *
+ * @author sergio.exposito (sjexpos@gmail.com)
+ */
+<span class="nc" id="L32">@Slf4j</span>
+@Aspect
+<span class="nc" id="L34">public class CacheLockAspect {</span>
+
+  @Around(&quot;@annotation(io.oigres.ecomm.cache.annotations.CacheLock)&quot;)
+  public Object cacheLock(ProceedingJoinPoint joinPoint) throws Throwable {
+<span class="nc" id="L38">    log.debug(&quot;Processing cache lock&quot;);</span>
+<span class="nc bnc" id="L39" title="All 2 branches missed.">    boolean startLocking = !CacheLockManager.isSynchronizationActive();</span>
+<span class="nc bnc" id="L40" title="All 2 branches missed.">    if (startLocking) { // if there is more than one aspect in the calls chain, only the first one</span>
+      // initializes and unlock all locks which were created.
+<span class="nc" id="L42">      CacheLockManager.initSynchronization();</span>
+    }
+    try {
+<span class="nc" id="L45">      return joinPoint.proceed();</span>
+    } finally {
+<span class="nc bnc" id="L47" title="All 2 branches missed.">      if (startLocking) {</span>
+<span class="nc" id="L48">        List&lt;Lock&gt; locks = CacheLockManager.getLocks();</span>
+<span class="nc" id="L49">        locks.forEach(</span>
+            lock -&gt; {
+              try {
+<span class="nc" id="L52">                lock.unlock();</span>
+<span class="nc" id="L53">              } catch (Throwable t) {</span>
+<span class="nc" id="L54">                log.warn(</span>
+<span class="nc" id="L55">                    String.format(</span>
+<span class="nc" id="L56">                        &quot;Cache lock '%s' release failed: %s&quot;, lock.toString(), t.getMessage()));</span>
+<span class="nc" id="L57">              }</span>
+<span class="nc" id="L58">            });</span>
+<span class="nc" id="L59">        CacheLockManager.clearLocks();</span>
+      }
+    }
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

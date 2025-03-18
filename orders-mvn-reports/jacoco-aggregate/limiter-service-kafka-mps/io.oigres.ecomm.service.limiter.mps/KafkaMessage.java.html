@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../jacoco-resources/report.gif" type="image/gif"/><title>KafkaMessage.java</title><link rel="stylesheet" href="../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../index.html" class="el_report">Aggregated Reports</a> &gt; <a href="../index.html" class="el_bundle">limiter-service-kafka-mps</a> &gt; <a href="index.source.html" class="el_package">io.oigres.ecomm.service.limiter.mps</a> &gt; <span class="el_source">KafkaMessage.java</span></div><h1>KafkaMessage.java</h1><pre class="source lang-java linenums">/**********
+ This project is free software; you can redistribute it and/or modify it under
+ the terms of the GNU General Public License as published by the
+ Free Software Foundation; either version 3.0 of the License, or (at your
+ option) any later version. (See &lt;https://www.gnu.org/licenses/gpl-3.0.html&gt;.)
+
+ This project is distributed in the hope that it will be useful, but WITHOUT
+ ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ more details.
+
+ You should have received a copy of the GNU General Public License
+ along with this project; if not, write to the Free Software Foundation, Inc.,
+ 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
+ **********/
+// Copyright (c) 2024-2025 Sergio Exposito.  All rights reserved.              
+
+package io.oigres.ecomm.service.limiter.mps;
+
+import io.opentelemetry.context.Context;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.locks.ReentrantLock;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.springframework.kafka.support.Acknowledgment;
+
+@RequiredArgsConstructor
+public class KafkaMessage {
+
+  @Getter private final ConsumerRecord&lt;String, Object&gt; record;
+  private final Acknowledgment ack;
+  private ReentrantLock lock = new ReentrantLock();
+  private AtomicBoolean processed = new AtomicBoolean(false);
+  private AtomicBoolean acknowledged = new AtomicBoolean(false);
+  @Getter private Context context = Context.current();
+
+  public void acknowledge() {
+<span class="nc bnc" id="L39" title="All 2 branches missed.">    if (!this.processed.get()) {</span>
+<span class="nc" id="L40">      return;</span>
+    }
+<span class="nc" id="L42">    lock.lock();</span>
+    try {
+<span class="nc bnc" id="L44" title="All 2 branches missed.">      if (!this.acknowledged.get()) {</span>
+<span class="nc" id="L45">        ack.acknowledge();</span>
+<span class="nc" id="L46">        this.acknowledged.set(true);</span>
+      }
+    } finally {
+<span class="nc" id="L49">      lock.unlock();</span>
+    }
+<span class="nc" id="L51">  }</span>
+
+  public void setProcessed(boolean value) {
+<span class="nc" id="L54">    this.processed.set(value);</span>
+<span class="nc" id="L55">  }</span>
+
+  public boolean isProcessed() {
+<span class="nc" id="L58">    return this.processed.get();</span>
+  }
+
+  public boolean isAcknowledged() {
+<span class="nc" id="L62">    return this.acknowledged.get();</span>
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

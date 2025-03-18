@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MessageWriter.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Kafka Messaging Proxy Service</a> &gt; <a href="index.source.html" class="el_package">io.oigres.ecomm.service.limiter.mps.writer</a> &gt; <span class="el_source">MessageWriter.java</span></div><h1>MessageWriter.java</h1><pre class="source lang-java linenums">/**********
+ This project is free software; you can redistribute it and/or modify it under
+ the terms of the GNU General Public License as published by the
+ Free Software Foundation; either version 3.0 of the License, or (at your
+ option) any later version. (See &lt;https://www.gnu.org/licenses/gpl-3.0.html&gt;.)
+
+ This project is distributed in the hope that it will be useful, but WITHOUT
+ ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ more details.
+
+ You should have received a copy of the GNU General Public License
+ along with this project; if not, write to the Free Software Foundation, Inc.,
+ 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
+ **********/
+// Copyright (c) 2024-2025 Sergio Exposito.  All rights reserved.              
+
+package io.oigres.ecomm.service.limiter.mps.writer;
+
+import io.oigres.ecomm.service.limiter.DLQMessage;
+import io.oigres.ecomm.service.limiter.config.MessageWriterProperties;
+import io.oigres.ecomm.service.limiter.mps.KafkaMessage;
+import io.oigres.ecomm.service.limiter.mps.reader.MessageReader;
+import java.time.Duration;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.config.ConfigurableBeanFactory;
+import org.springframework.context.annotation.Scope;
+import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.stereotype.Component;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.HttpServerErrorException;
+
+<span class="nc" id="L33">@Slf4j</span>
+@Component
+@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
+public class MessageWriter implements Runnable {
+  private final MessageReader messageReader;
+  private final RestApiCaller restApiCaller;
+  private final KafkaTemplate&lt;String, Object&gt; messageKafkaTemplate;
+  private final Duration pollTimeout;
+
+  public MessageWriter(
+      MessageReader messageReader,
+      RestApiCaller restApiCaller,
+      KafkaTemplate&lt;String, Object&gt; messageKafkaTemplate,
+<span class="nc" id="L46">      MessageWriterProperties properties) {</span>
+<span class="nc" id="L47">    this.messageReader = messageReader;</span>
+<span class="nc" id="L48">    this.restApiCaller = restApiCaller;</span>
+<span class="nc" id="L49">    this.messageKafkaTemplate = messageKafkaTemplate;</span>
+<span class="nc" id="L50">    this.pollTimeout = properties.getPollTimeout();</span>
+<span class="nc" id="L51">  }</span>
+
+  public void run() {
+    while (true) {
+<span class="nc" id="L55">      KafkaMessage msg = null;</span>
+      try {
+<span class="nc" id="L57">        msg = this.messageReader.poll(this.pollTimeout);</span>
+<span class="nc" id="L58">      } catch (InterruptedException e) {</span>
+<span class="nc" id="L59">        break;</span>
+<span class="nc" id="L60">      }</span>
+<span class="nc bnc" id="L61" title="All 2 branches missed.">      if (msg != null) {</span>
+<span class="nc" id="L62">        process(msg);</span>
+<span class="nc" id="L63">        this.messageReader.acknowledgeIfPossible(msg);</span>
+      }
+<span class="nc" id="L65">    }</span>
+<span class="nc" id="L66">  }</span>
+
+  private void process(KafkaMessage message) {
+<span class="nc" id="L69">    log.info(</span>
+        &quot;Processing message for key {}&quot;,
+<span class="nc bnc" id="L71" title="All 2 branches missed.">        message.getRecord().key() != null ? message.getRecord().key() : null);</span>
+    try {
+<span class="nc" id="L73">      this.restApiCaller.call(message.getRecord().value());</span>
+<span class="nc" id="L74">    } catch (HttpServerErrorException | HttpClientErrorException e) {</span>
+<span class="nc" id="L75">      sendDLQ(message, e);</span>
+<span class="nc" id="L76">    } catch (Throwable t) {</span>
+<span class="nc" id="L77">      log.error(&quot;Unexpected error: &quot;, t);</span>
+<span class="nc" id="L78">      sendDLQ(message, t);</span>
+<span class="nc" id="L79">    }</span>
+<span class="nc" id="L80">    message.setProcessed(true);</span>
+<span class="nc" id="L81">  }</span>
+
+  private void sendDLQ(KafkaMessage message, Throwable t) {
+<span class="nc" id="L84">    log.info(</span>
+        &quot;Sending to DLQ message for key {}&quot;,
+<span class="nc bnc" id="L86" title="All 2 branches missed.">        message.getRecord().key() != null ? message.getRecord().key() : null);</span>
+    DLQMessage dlqMessage =
+<span class="nc" id="L88">        DLQMessage.builder().data(message.getRecord().value()).error(t.getMessage()).build();</span>
+<span class="nc" id="L89">    this.messageKafkaTemplate.sendDefault(message.getRecord().key(), dlqMessage);</span>
+<span class="nc" id="L90">  }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

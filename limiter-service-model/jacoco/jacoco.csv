@@ -1,0 +1,4 @@
+GROUP,PACKAGE,CLASS,INSTRUCTION_MISSED,INSTRUCTION_COVERED,BRANCH_MISSED,BRANCH_COVERED,LINE_MISSED,LINE_COVERED,COMPLEXITY_MISSED,COMPLEXITY_COVERED,METHOD_MISSED,METHOD_COVERED
+Model,io.oigres.ecomm.service.limiter,BlackedInfo,0,14,0,4,0,1,0,3,0,1
+Model,io.oigres.ecomm.service.limiter,ResponseAudit,4,38,2,2,2,6,2,4,0,4
+Model,io.oigres.ecomm.service.limiter,RequestAudit,6,57,3,3,3,9,3,6,0,6

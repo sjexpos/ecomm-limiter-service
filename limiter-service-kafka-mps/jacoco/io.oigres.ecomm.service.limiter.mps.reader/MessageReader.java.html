@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MessageReader.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Kafka Messaging Proxy Service</a> &gt; <a href="index.source.html" class="el_package">io.oigres.ecomm.service.limiter.mps.reader</a> &gt; <span class="el_source">MessageReader.java</span></div><h1>MessageReader.java</h1><pre class="source lang-java linenums">/**********
+ This project is free software; you can redistribute it and/or modify it under
+ the terms of the GNU General Public License as published by the
+ Free Software Foundation; either version 3.0 of the License, or (at your
+ option) any later version. (See &lt;https://www.gnu.org/licenses/gpl-3.0.html&gt;.)
+
+ This project is distributed in the hope that it will be useful, but WITHOUT
+ ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ more details.
+
+ You should have received a copy of the GNU General Public License
+ along with this project; if not, write to the Free Software Foundation, Inc.,
+ 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
+ **********/
+// Copyright (c) 2024-2025 Sergio Exposito.  All rights reserved.              
+
+package io.oigres.ecomm.service.limiter.mps.reader;
+
+import io.micrometer.core.instrument.Gauge;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.observation.annotation.Observed;
+import io.oigres.ecomm.service.limiter.config.MessageReaderProperties;
+import io.oigres.ecomm.service.limiter.mps.KafkaMessage;
+import java.time.Duration;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.springframework.core.env.Environment;
+import org.springframework.kafka.support.Acknowledgment;
+import org.springframework.stereotype.Component;
+
+<span class="nc" id="L34">@Slf4j</span>
+@Component
+// @Observed
+public class MessageReader {
+  private final PendingQueue&lt;KafkaMessage&gt; pendingQueue;
+  private final PendingQueue&lt;KafkaMessage&gt;.OrderIterator orderIterator;
+  private final ConcurrentHashMap&lt;String, Object&gt; inflightSet;
+  private final Duration offerTimeout;
+  private final Duration maxPurgeTime;
+
+  public MessageReader(
+<span class="nc" id="L45">      MessageReaderProperties configuration, MeterRegistry registry, Environment env) {</span>
+<span class="nc" id="L46">    this.pendingQueue = new PendingQueue&lt;KafkaMessage&gt;(configuration.getQueueSize());</span>
+<span class="nc" id="L47">    this.orderIterator =</span>
+<span class="nc" id="L48">        (PendingQueue&lt;KafkaMessage&gt;.OrderIterator) this.pendingQueue.orderIterator();</span>
+<span class="nc" id="L49">    this.inflightSet = new ConcurrentHashMap&lt;&gt;();</span>
+<span class="nc" id="L50">    this.offerTimeout = configuration.getQueueTimeout();</span>
+<span class="nc" id="L51">    this.maxPurgeTime = configuration.getPurgeTime();</span>
+<span class="nc" id="L52">    Gauge.builder(&quot;mps.pending&quot;, this.pendingQueue, PendingQueue::size)</span>
+<span class="nc" id="L53">        .description(&quot;Kafka messages to be processed&quot;)</span>
+<span class="nc" id="L54">        .tag(&quot;region&quot;, &quot;us-east&quot;)</span>
+<span class="nc" id="L55">        .baseUnit(&quot;messages&quot;)</span>
+<span class="nc" id="L56">        .register(registry);</span>
+<span class="nc" id="L57">  }</span>
+
+  @Observed(name = &quot;mps.messages.queue&quot;)
+  public Object queue(ConsumerRecord&lt;String, Object&gt; record, Acknowledgment ack)
+      throws InterruptedException {
+<span class="nc" id="L62">    boolean added = false;</span>
+<span class="nc bnc" id="L63" title="All 2 branches missed.">    while (!added) {</span>
+<span class="nc" id="L64">      added = this.pendingQueue.offer(new KafkaMessage(record, ack), this.offerTimeout);</span>
+<span class="nc bnc" id="L65" title="All 4 branches missed.">      if (!added &amp;&amp; this.pendingQueue.remainingCapacity() == 0) {</span>
+<span class="nc" id="L66">        this.pendingQueue.purge(KafkaMessage::isAcknowledged, this.maxPurgeTime);</span>
+      }
+    }
+<span class="nc" id="L69">    return null;</span>
+  }
+
+  @Observed(name = &quot;mps.messages.poll&quot;)
+  public KafkaMessage poll(Duration timeout) throws InterruptedException {
+<span class="nc" id="L74">    KafkaMessage msg = this.orderIterator.next(timeout);</span>
+<span class="nc bnc" id="L75" title="All 2 branches missed.">    if (msg != null) {</span>
+<span class="nc" id="L76">      msg.getContext().makeCurrent(); // Opentelemetry propagation</span>
+<span class="nc bnc" id="L77" title="All 4 branches missed.">      if (msg.getRecord() != null &amp;&amp; msg.getRecord().key() != null) {</span>
+<span class="nc" id="L78">        this.inflightSet.put(msg.getRecord().key(), msg);</span>
+      } else {
+<span class="nc" id="L80">        log.warn(&quot;Trying to process e message without record or key!&quot;);</span>
+      }
+    }
+<span class="nc" id="L83">    return msg;</span>
+  }
+
+  @Observed(name = &quot;mps.messages.acknowledge&quot;)
+  public Object acknowledgeIfPossible(KafkaMessage message) {
+<span class="nc" id="L88">    final AtomicBoolean wasPrevAcknowledged = new AtomicBoolean(true);</span>
+<span class="nc" id="L89">    this.pendingQueue.forEach(</span>
+        m -&gt; {
+<span class="nc bnc" id="L91" title="All 2 branches missed.">          if (m.getRecord().partition() != message.getRecord().partition()) {</span>
+<span class="nc" id="L92">            return;</span>
+          }
+<span class="nc bnc" id="L94" title="All 2 branches missed.">          if (wasPrevAcknowledged.get()) {</span>
+<span class="nc" id="L95">            m.acknowledge();</span>
+          }
+<span class="nc" id="L97">          wasPrevAcknowledged.set(m.isAcknowledged());</span>
+<span class="nc" id="L98">        },</span>
+<span class="nc bnc" id="L99" title="All 4 branches missed.">        m -&gt; (m.getRecord().partition() == message.getRecord().partition()) &amp;&amp; !m.isAcknowledged());</span>
+<span class="nc" id="L100">    return null;</span>
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

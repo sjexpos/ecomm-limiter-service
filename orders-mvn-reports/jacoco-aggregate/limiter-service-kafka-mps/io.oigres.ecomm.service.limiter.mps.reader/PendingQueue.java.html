@@ -1,0 +1,1172 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../jacoco-resources/report.gif" type="image/gif"/><title>PendingQueue.java</title><link rel="stylesheet" href="../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../index.html" class="el_report">Aggregated Reports</a> &gt; <a href="../index.html" class="el_bundle">limiter-service-kafka-mps</a> &gt; <a href="index.source.html" class="el_package">io.oigres.ecomm.service.limiter.mps.reader</a> &gt; <span class="el_source">PendingQueue.java</span></div><h1>PendingQueue.java</h1><pre class="source lang-java linenums">/**********
+ This project is free software; you can redistribute it and/or modify it under
+ the terms of the GNU General Public License as published by the
+ Free Software Foundation; either version 3.0 of the License, or (at your
+ option) any later version. (See &lt;https://www.gnu.org/licenses/gpl-3.0.html&gt;.)
+
+ This project is distributed in the hope that it will be useful, but WITHOUT
+ ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ more details.
+
+ You should have received a copy of the GNU General Public License
+ along with this project; if not, write to the Free Software Foundation, Inc.,
+ 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
+ **********/
+// Copyright (c) 2024-2025 Sergio Exposito.  All rights reserved.              
+
+package io.oigres.ecomm.service.limiter.mps.reader;
+
+import java.time.Duration;
+import java.util.Collection;
+import java.util.Iterator;
+import java.util.NoSuchElementException;
+import java.util.Objects;
+import java.util.Spliterator;
+import java.util.Spliterators;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Consumer;
+import java.util.function.Predicate;
+
+/**
+ * An optionally-bounded {@linkplain java.util.concurrent.BlockingQueue blocking queue} based on
+ * linked nodes.
+ * This queue orders elements FIFO (first-in-first-out).
+ * The &lt;em&gt;head&lt;/em&gt; of the queue is that element that has been on the
+ * queue the longest time.
+ * The &lt;em&gt;tail&lt;/em&gt; of the queue is that element that has been on the
+ * queue the shortest time. New elements
+ * are inserted at the tail of the queue, and the queue retrieval
+ * operations obtain elements at the head of the queue.
+ */
+class PendingQueue&lt;E&gt; implements java.io.Serializable {
+  private static final long serialVersionUID = -6903933977591709194L;
+
+  /**
+   * Linked list node class.
+   */
+  static class Node&lt;E&gt; {
+<span class="fc" id="L54">    AtomicInteger orderIteratorCount =</span>
+        new AtomicInteger(0); // store how many OrderIterator are pointing this node
+    E item;
+
+    /**
+     * One of:
+     * - the real successor Node
+     * - this Node, meaning the successor is head.next
+     * - null, meaning there is no successor (this is the last node)
+     */
+    Node&lt;E&gt; next;
+
+<span class="fc" id="L66">    Node(E x) {</span>
+<span class="fc" id="L67">      item = x;</span>
+<span class="fc" id="L68">    }</span>
+  }
+
+  /** The capacity bound, or Integer.MAX_VALUE if none */
+  private final int capacity;
+
+  /** Current number of elements */
+<span class="fc" id="L75">  private final AtomicInteger count = new AtomicInteger();</span>
+
+  /**
+   * Head of linked list.
+   * Invariant: head.item == null
+   */
+  private transient Node&lt;E&gt; head;
+
+  /**
+   * Tail of linked list.
+   * Invariant: last.next == null
+   */
+  private transient Node&lt;E&gt; last;
+
+  /** Lock held by take, poll, etc */
+<span class="fc" id="L90">  private final ReentrantLock takeLock = new ReentrantLock();</span>
+
+  /** Wait queue for waiting takes */
+<span class="fc" id="L93">  @SuppressWarnings(&quot;serial&quot;) // Classes implementing Condition may be serializable.</span>
+<span class="fc" id="L94">  private final Condition notEmpty = takeLock.newCondition();</span>
+
+  /** Lock held by put, offer, etc */
+<span class="fc" id="L97">  private final ReentrantLock putLock = new ReentrantLock();</span>
+
+  /** Wait queue for waiting puts */
+<span class="fc" id="L100">  @SuppressWarnings(&quot;serial&quot;) // Classes implementing Condition may be serializable.</span>
+<span class="fc" id="L101">  private final Condition notFull = putLock.newCondition();</span>
+
+  /** Wait queue for waiting puts */
+<span class="fc" id="L104">  @SuppressWarnings(&quot;serial&quot;) // Classes implementing Condition may be serializable.</span>
+<span class="fc" id="L105">  private final Condition newElement = putLock.newCondition();</span>
+
+  /**
+   * Signals a waiting take. Called only from put/offer (which do not
+   * otherwise ordinarily lock takeLock.)
+   */
+  private void signalNotEmpty() {
+<span class="fc" id="L112">    final ReentrantLock takeLock = this.takeLock;</span>
+<span class="fc" id="L113">    takeLock.lock();</span>
+    try {
+<span class="fc" id="L115">      notEmpty.signal();</span>
+    } finally {
+<span class="fc" id="L117">      takeLock.unlock();</span>
+    }
+<span class="fc" id="L119">  }</span>
+
+  /**
+   * Signals a waiting put. Called only from take/poll.
+   */
+  private void signalNotFull() {
+<span class="nc" id="L125">    final ReentrantLock putLock = this.putLock;</span>
+<span class="nc" id="L126">    putLock.lock();</span>
+    try {
+<span class="nc" id="L128">      notFull.signal();</span>
+    } finally {
+<span class="nc" id="L130">      putLock.unlock();</span>
+    }
+<span class="nc" id="L132">  }</span>
+
+  /**
+   * Links node at end of queue.
+   *
+   * @param node the node
+   */
+  private void enqueue(Node&lt;E&gt; node) {
+    // assert putLock.isHeldByCurrentThread();
+    // assert last.next == null;
+<span class="fc" id="L142">    last = last.next = node;</span>
+<span class="fc" id="L143">    this.newElement.signal();</span>
+<span class="fc" id="L144">  }</span>
+
+  /**
+   * Removes a node from head of queue.
+   *
+   * @return the node
+   */
+  private E dequeue() {
+    // assert takeLock.isHeldByCurrentThread();
+    // assert head.item == null;
+<span class="fc" id="L154">    Node&lt;E&gt; h = head;</span>
+<span class="fc" id="L155">    Node&lt;E&gt; first = h.next;</span>
+<span class="fc" id="L156">    h.next = h; // help GC</span>
+<span class="fc" id="L157">    head = first;</span>
+<span class="fc" id="L158">    E x = first.item;</span>
+<span class="fc" id="L159">    first.item = null;</span>
+<span class="fc" id="L160">    return x;</span>
+  }
+
+  /**
+   * Locks to prevent both puts and takes.
+   */
+  void fullyLock() {
+<span class="fc" id="L167">    putLock.lock();</span>
+<span class="fc" id="L168">    takeLock.lock();</span>
+<span class="fc" id="L169">  }</span>
+
+  /**
+   * Unlocks to allow both puts and takes.
+   */
+  void fullyUnlock() {
+<span class="fc" id="L175">    takeLock.unlock();</span>
+<span class="fc" id="L176">    putLock.unlock();</span>
+<span class="fc" id="L177">  }</span>
+
+  /**
+   * Creates a {@code LinkedBlockingQueue} with a capacity of
+   * {@link Integer#MAX_VALUE}.
+   */
+  public PendingQueue() {
+<span class="fc" id="L184">    this(Integer.MAX_VALUE);</span>
+<span class="fc" id="L185">  }</span>
+
+  /**
+   * Creates a {@code LinkedBlockingQueue} with the given (fixed) capacity.
+   *
+   * @param capacity the capacity of this queue
+   * @throws IllegalArgumentException if {@code capacity} is not greater
+   *         than zero
+   */
+<span class="fc" id="L194">  public PendingQueue(int capacity) {</span>
+<span class="pc bpc" id="L195" title="1 of 2 branches missed.">    if (capacity &lt;= 0) throw new IllegalArgumentException();</span>
+<span class="fc" id="L196">    this.capacity = capacity;</span>
+<span class="fc" id="L197">    last = head = new Node&lt;E&gt;(null);</span>
+<span class="fc" id="L198">  }</span>
+
+  /**
+   * Creates a {@code LinkedBlockingQueue} with a capacity of
+   * {@link Integer#MAX_VALUE}, initially containing the elements of the
+   * given collection,
+   * added in traversal order of the collection's iterator.
+   *
+   * @param c the collection of elements to initially contain
+   * @throws NullPointerException if the specified collection or any
+   *         of its elements are null
+   */
+  public PendingQueue(Collection&lt;? extends E&gt; c) {
+<span class="nc" id="L211">    this(Integer.MAX_VALUE);</span>
+<span class="nc" id="L212">    final ReentrantLock putLock = this.putLock;</span>
+<span class="nc" id="L213">    putLock.lock(); // Never contended, but necessary for visibility</span>
+    try {
+<span class="nc" id="L215">      int n = 0;</span>
+<span class="nc bnc" id="L216" title="All 2 branches missed.">      for (E e : c) {</span>
+<span class="nc bnc" id="L217" title="All 2 branches missed.">        if (e == null) throw new NullPointerException();</span>
+<span class="nc bnc" id="L218" title="All 2 branches missed.">        if (n == capacity) throw new IllegalStateException(&quot;Queue full&quot;);</span>
+<span class="nc" id="L219">        enqueue(new Node&lt;E&gt;(e));</span>
+<span class="nc" id="L220">        ++n;</span>
+<span class="nc" id="L221">      }</span>
+<span class="nc" id="L222">      count.set(n);</span>
+    } finally {
+<span class="nc" id="L224">      putLock.unlock();</span>
+    }
+<span class="nc" id="L226">  }</span>
+
+  // this doc comment is overridden to remove the reference to collections
+  // greater in size than Integer.MAX_VALUE
+  /**
+   * Returns the number of elements in this queue.
+   *
+   * @return the number of elements in this queue
+   */
+  public int size() {
+<span class="fc" id="L236">    return count.get();</span>
+  }
+
+  // this doc comment is a modified copy of the inherited doc comment,
+  // without the reference to unlimited queues.
+  /**
+   * Returns the number of additional elements that this queue can ideally
+   * (in the absence of memory or resource constraints) accept without
+   * blocking. This is always equal to the initial capacity of this queue
+   * less the current {@code size} of this queue.
+   *
+   * &lt;p&gt;Note that you &lt;em&gt;cannot&lt;/em&gt; always tell if an attempt to insert
+   * an element will succeed by inspecting {@code remainingCapacity}
+   * because it may be the case that another thread is about to
+   * insert or remove an element.
+   */
+  public int remainingCapacity() {
+<span class="fc" id="L253">    return capacity - count.get();</span>
+  }
+
+  /**
+   * Inserts the specified element at the tail of this queue, waiting if
+   * necessary for space to become available.
+   *
+   * @throws InterruptedException {@inheritDoc}
+   * @throws NullPointerException {@inheritDoc}
+   */
+  public void put(E e) throws InterruptedException {
+<span class="nc bnc" id="L264" title="All 2 branches missed.">    if (e == null) throw new NullPointerException();</span>
+    final int c;
+<span class="nc" id="L266">    final Node&lt;E&gt; node = new Node&lt;E&gt;(e);</span>
+<span class="nc" id="L267">    final ReentrantLock putLock = this.putLock;</span>
+<span class="nc" id="L268">    final AtomicInteger count = this.count;</span>
+<span class="nc" id="L269">    putLock.lockInterruptibly();</span>
+    try {
+      /*
+       * Note that count is used in wait guard even though it is
+       * not protected by lock. This works because count can
+       * only decrease at this point (all other puts are shut
+       * out by lock), and we (or some other waiting put) are
+       * signalled if it ever changes from capacity. Similarly
+       * for all other uses of count in other wait guards.
+       */
+<span class="nc bnc" id="L279" title="All 2 branches missed.">      while (count.get() == capacity) {</span>
+<span class="nc" id="L280">        notFull.await();</span>
+      }
+<span class="nc" id="L282">      enqueue(node);</span>
+<span class="nc" id="L283">      c = count.getAndIncrement();</span>
+<span class="nc bnc" id="L284" title="All 2 branches missed.">      if (c + 1 &lt; capacity) notFull.signal();</span>
+    } finally {
+<span class="nc" id="L286">      putLock.unlock();</span>
+    }
+<span class="nc bnc" id="L288" title="All 2 branches missed.">    if (c == 0) signalNotEmpty();</span>
+<span class="nc" id="L289">  }</span>
+
+  /**
+   * Inserts the specified element at the tail of this queue, waiting if
+   * necessary up to the specified wait time for space to become available.
+   *
+   * @return {@code true} if successful, or {@code false} if
+   *         the specified waiting time elapses before space is available
+   * @throws InterruptedException {@inheritDoc}
+   * @throws NullPointerException {@inheritDoc}
+   */
+  public boolean offer(E e, Duration timeout) throws InterruptedException {
+
+<span class="nc bnc" id="L302" title="All 2 branches missed.">    if (e == null) throw new NullPointerException();</span>
+<span class="nc" id="L303">    long nanos = timeout.toNanos();</span>
+    final int c;
+<span class="nc" id="L305">    final ReentrantLock putLock = this.putLock;</span>
+<span class="nc" id="L306">    final AtomicInteger count = this.count;</span>
+<span class="nc" id="L307">    putLock.lockInterruptibly();</span>
+    try {
+<span class="nc bnc" id="L309" title="All 2 branches missed.">      while (count.get() == capacity) {</span>
+<span class="nc bnc" id="L310" title="All 2 branches missed.">        if (nanos &lt;= 0L) return false;</span>
+<span class="nc" id="L311">        nanos = notFull.awaitNanos(nanos);</span>
+      }
+<span class="nc" id="L313">      enqueue(new Node&lt;E&gt;(e));</span>
+<span class="nc" id="L314">      c = count.getAndIncrement();</span>
+<span class="nc bnc" id="L315" title="All 2 branches missed.">      if (c + 1 &lt; capacity) notFull.signal();</span>
+    } finally {
+<span class="nc" id="L317">      putLock.unlock();</span>
+    }
+<span class="nc bnc" id="L319" title="All 2 branches missed.">    if (c == 0) signalNotEmpty();</span>
+<span class="nc" id="L320">    return true;</span>
+  }
+
+  /**
+   * Inserts the specified element at the tail of this queue if it is
+   * possible to do so immediately without exceeding the queue's capacity,
+   * returning {@code true} upon success and {@code false} if this queue
+   * is full.
+   * When using a capacity-restricted queue, this method is generally
+   * preferable to method {@link BlockingQueue#add add}, which can fail to
+   * insert an element only by throwing an exception.
+   *
+   * @throws NullPointerException if the specified element is null
+   */
+  public boolean offer(E e) {
+<span class="pc bpc" id="L335" title="1 of 2 branches missed.">    if (e == null) throw new NullPointerException();</span>
+<span class="fc" id="L336">    final AtomicInteger count = this.count;</span>
+<span class="pc bpc" id="L337" title="1 of 2 branches missed.">    if (count.get() == capacity) return false;</span>
+    final int c;
+<span class="fc" id="L339">    final Node&lt;E&gt; node = new Node&lt;E&gt;(e);</span>
+<span class="fc" id="L340">    final ReentrantLock putLock = this.putLock;</span>
+<span class="fc" id="L341">    putLock.lock();</span>
+    try {
+<span class="pc bpc" id="L343" title="1 of 2 branches missed.">      if (count.get() == capacity) return false;</span>
+<span class="fc" id="L344">      enqueue(node);</span>
+<span class="fc" id="L345">      c = count.getAndIncrement();</span>
+<span class="pc bpc" id="L346" title="1 of 2 branches missed.">      if (c + 1 &lt; capacity) notFull.signal();</span>
+    } finally {
+<span class="fc" id="L348">      putLock.unlock();</span>
+    }
+<span class="fc bfc" id="L350" title="All 2 branches covered.">    if (c == 0) signalNotEmpty();</span>
+<span class="fc" id="L351">    return true;</span>
+  }
+
+  public E take() throws InterruptedException {
+    final E x;
+    final int c;
+<span class="nc" id="L357">    final AtomicInteger count = this.count;</span>
+<span class="nc" id="L358">    final ReentrantLock takeLock = this.takeLock;</span>
+<span class="nc" id="L359">    takeLock.lockInterruptibly();</span>
+    try {
+<span class="nc bnc" id="L361" title="All 2 branches missed.">      while (count.get() == 0) {</span>
+<span class="nc" id="L362">        notEmpty.await();</span>
+      }
+<span class="nc" id="L364">      x = dequeue();</span>
+<span class="nc" id="L365">      c = count.getAndDecrement();</span>
+<span class="nc bnc" id="L366" title="All 2 branches missed.">      if (c &gt; 1) notEmpty.signal();</span>
+    } finally {
+<span class="nc" id="L368">      takeLock.unlock();</span>
+    }
+<span class="nc bnc" id="L370" title="All 2 branches missed.">    if (c == capacity) signalNotFull();</span>
+<span class="nc" id="L371">    return x;</span>
+  }
+
+  public E poll(long timeout, TimeUnit unit) throws InterruptedException {
+    final E x;
+    final int c;
+<span class="nc" id="L377">    long nanos = unit.toNanos(timeout);</span>
+<span class="nc" id="L378">    final AtomicInteger count = this.count;</span>
+<span class="nc" id="L379">    final ReentrantLock takeLock = this.takeLock;</span>
+<span class="nc" id="L380">    takeLock.lockInterruptibly();</span>
+    try {
+<span class="nc bnc" id="L382" title="All 2 branches missed.">      while (count.get() == 0) {</span>
+<span class="nc bnc" id="L383" title="All 2 branches missed.">        if (nanos &lt;= 0L) return null;</span>
+<span class="nc" id="L384">        nanos = notEmpty.awaitNanos(nanos);</span>
+      }
+<span class="nc" id="L386">      x = dequeue();</span>
+<span class="nc" id="L387">      c = count.getAndDecrement();</span>
+<span class="nc bnc" id="L388" title="All 2 branches missed.">      if (c &gt; 1) notEmpty.signal();</span>
+    } finally {
+<span class="nc" id="L390">      takeLock.unlock();</span>
+    }
+<span class="nc bnc" id="L392" title="All 2 branches missed.">    if (c == capacity) signalNotFull();</span>
+<span class="nc" id="L393">    return x;</span>
+  }
+
+  public E poll() {
+<span class="nc" id="L397">    final AtomicInteger count = this.count;</span>
+<span class="nc bnc" id="L398" title="All 2 branches missed.">    if (count.get() == 0) return null;</span>
+    final E x;
+    final int c;
+<span class="nc" id="L401">    final ReentrantLock takeLock = this.takeLock;</span>
+<span class="nc" id="L402">    takeLock.lock();</span>
+    try {
+<span class="nc bnc" id="L404" title="All 2 branches missed.">      if (count.get() == 0) return null;</span>
+<span class="nc" id="L405">      x = dequeue();</span>
+<span class="nc" id="L406">      c = count.getAndDecrement();</span>
+<span class="nc bnc" id="L407" title="All 2 branches missed.">      if (c &gt; 1) notEmpty.signal();</span>
+    } finally {
+<span class="nc" id="L409">      takeLock.unlock();</span>
+    }
+<span class="nc bnc" id="L411" title="All 2 branches missed.">    if (c == capacity) signalNotFull();</span>
+<span class="nc" id="L412">    return x;</span>
+  }
+
+  public E peek() {
+<span class="nc" id="L416">    final AtomicInteger count = this.count;</span>
+<span class="nc bnc" id="L417" title="All 2 branches missed.">    if (count.get() == 0) return null;</span>
+<span class="nc" id="L418">    final ReentrantLock takeLock = this.takeLock;</span>
+<span class="nc" id="L419">    takeLock.lock();</span>
+    try {
+<span class="nc bnc" id="L421" title="All 2 branches missed.">      return (count.get() &gt; 0) ? head.next.item : null;</span>
+    } finally {
+<span class="nc" id="L423">      takeLock.unlock();</span>
+    }
+  }
+
+  /**
+   * Unlinks interior Node p with predecessor pred.
+   */
+  void unlink(Node&lt;E&gt; p, Node&lt;E&gt; pred) {
+    // assert putLock.isHeldByCurrentThread();
+    // assert takeLock.isHeldByCurrentThread();
+    // p.next is not changed, to allow iterators that are
+    // traversing p to maintain their weak-consistency guarantee.
+<span class="nc" id="L435">    p.item = null;</span>
+<span class="nc" id="L436">    pred.next = p.next;</span>
+<span class="nc bnc" id="L437" title="All 2 branches missed.">    if (last == p) last = pred;</span>
+<span class="nc bnc" id="L438" title="All 2 branches missed.">    if (count.getAndDecrement() == capacity) notFull.signal();</span>
+<span class="nc" id="L439">  }</span>
+
+  /**
+   * Removes a single instance of the specified element from this queue,
+   * if it is present.  More formally, removes an element {@code e} such
+   * that {@code o.equals(e)}, if this queue contains one or more such
+   * elements.
+   * Returns {@code true} if this queue contained the specified element
+   * (or equivalently, if this queue changed as a result of the call).
+   *
+   * @param o element to be removed from this queue, if present
+   * @return {@code true} if this queue changed as a result of the call
+   */
+  public boolean remove(Object o) {
+<span class="nc bnc" id="L453" title="All 2 branches missed.">    if (o == null) return false;</span>
+<span class="nc" id="L454">    fullyLock();</span>
+    try {
+<span class="nc bnc" id="L456" title="All 2 branches missed.">      for (Node&lt;E&gt; pred = head, p = pred.next; p != null; pred = p, p = p.next) {</span>
+<span class="nc bnc" id="L457" title="All 2 branches missed.">        if (o.equals(p.item)) {</span>
+<span class="nc" id="L458">          unlink(p, pred);</span>
+<span class="nc" id="L459">          return true;</span>
+        }
+      }
+<span class="nc" id="L462">      return false;</span>
+    } finally {
+<span class="nc" id="L464">      fullyUnlock();</span>
+    }
+  }
+
+  /**
+   * Returns {@code true} if this queue contains the specified element.
+   * More formally, returns {@code true} if and only if this queue contains
+   * at least one element {@code e} such that {@code o.equals(e)}.
+   *
+   * @param o object to be checked for containment in this queue
+   * @return {@code true} if this queue contains the specified element
+   */
+  public boolean contains(Object o) {
+<span class="nc bnc" id="L477" title="All 2 branches missed.">    if (o == null) return false;</span>
+<span class="nc" id="L478">    fullyLock();</span>
+    try {
+<span class="nc bnc" id="L480" title="All 4 branches missed.">      for (Node&lt;E&gt; p = head.next; p != null; p = p.next) if (o.equals(p.item)) return true;</span>
+<span class="nc" id="L481">      return false;</span>
+    } finally {
+<span class="nc" id="L483">      fullyUnlock();</span>
+    }
+  }
+
+  /**
+   * Returns an array containing all of the elements in this queue, in
+   * proper sequence.
+   *
+   * &lt;p&gt;The returned array will be &quot;safe&quot; in that no references to it are
+   * maintained by this queue.  (In other words, this method must allocate
+   * a new array).  The caller is thus free to modify the returned array.
+   *
+   * &lt;p&gt;This method acts as bridge between array-based and collection-based
+   * APIs.
+   *
+   * @return an array containing all of the elements in this queue
+   */
+  public Object[] toArray() {
+<span class="nc" id="L501">    fullyLock();</span>
+    try {
+<span class="nc" id="L503">      int size = count.get();</span>
+<span class="nc" id="L504">      Object[] a = new Object[size];</span>
+<span class="nc" id="L505">      int k = 0;</span>
+<span class="nc bnc" id="L506" title="All 2 branches missed.">      for (Node&lt;E&gt; p = head.next; p != null; p = p.next) a[k++] = p.item;</span>
+<span class="nc" id="L507">      return a;</span>
+    } finally {
+<span class="nc" id="L509">      fullyUnlock();</span>
+    }
+  }
+
+  /**
+   * Returns an array containing all of the elements in this queue, in
+   * proper sequence; the runtime type of the returned array is that of
+   * the specified array.  If the queue fits in the specified array, it
+   * is returned therein.  Otherwise, a new array is allocated with the
+   * runtime type of the specified array and the size of this queue.
+   *
+   * &lt;p&gt;If this queue fits in the specified array with room to spare
+   * (i.e., the array has more elements than this queue), the element in
+   * the array immediately following the end of the queue is set to
+   * {@code null}.
+   *
+   * &lt;p&gt;Like the {@link #toArray()} method, this method acts as bridge between
+   * array-based and collection-based APIs.  Further, this method allows
+   * precise control over the runtime type of the output array, and may,
+   * under certain circumstances, be used to save allocation costs.
+   *
+   * &lt;p&gt;Suppose {@code x} is a queue known to contain only strings.
+   * The following code can be used to dump the queue into a newly
+   * allocated array of {@code String}:
+   *
+   * &lt;pre&gt; {@code String[] y = x.toArray(new String[0]);}&lt;/pre&gt;
+   *
+   * Note that {@code toArray(new Object[0])} is identical in function to
+   * {@code toArray()}.
+   *
+   * @param a the array into which the elements of the queue are to
+   *          be stored, if it is big enough; otherwise, a new array of the
+   *          same runtime type is allocated for this purpose
+   * @return an array containing all of the elements in this queue
+   * @throws ArrayStoreException if the runtime type of the specified array
+   *         is not a supertype of the runtime type of every element in
+   *         this queue
+   * @throws NullPointerException if the specified array is null
+   */
+  @SuppressWarnings(&quot;unchecked&quot;)
+  public &lt;T&gt; T[] toArray(T[] a) {
+<span class="nc" id="L550">    fullyLock();</span>
+    try {
+<span class="nc" id="L552">      int size = count.get();</span>
+<span class="nc bnc" id="L553" title="All 2 branches missed.">      if (a.length &lt; size)</span>
+<span class="nc" id="L554">        a = (T[]) java.lang.reflect.Array.newInstance(a.getClass().getComponentType(), size);</span>
+
+<span class="nc" id="L556">      int k = 0;</span>
+<span class="nc bnc" id="L557" title="All 2 branches missed.">      for (Node&lt;E&gt; p = head.next; p != null; p = p.next) a[k++] = (T) p.item;</span>
+<span class="nc bnc" id="L558" title="All 2 branches missed.">      if (a.length &gt; k) a[k] = null;</span>
+<span class="nc" id="L559">      return a;</span>
+    } finally {
+<span class="nc" id="L561">      fullyUnlock();</span>
+    }
+  }
+
+  /**
+   * Atomically removes all of the elements from this queue.
+   * The queue will be empty after this call returns.
+   */
+  public void clear() {
+<span class="nc" id="L570">    fullyLock();</span>
+    try {
+<span class="nc bnc" id="L572" title="All 2 branches missed.">      for (Node&lt;E&gt; p, h = head; (p = h.next) != null; h = p) {</span>
+<span class="nc" id="L573">        h.next = h;</span>
+<span class="nc" id="L574">        p.item = null;</span>
+      }
+<span class="nc" id="L576">      head = last;</span>
+      // assert head.item == null &amp;&amp; head.next == null;
+<span class="nc bnc" id="L578" title="All 2 branches missed.">      if (count.getAndSet(0) == capacity) notFull.signal();</span>
+    } finally {
+<span class="nc" id="L580">      fullyUnlock();</span>
+    }
+<span class="nc" id="L582">  }</span>
+
+  /**
+   * @throws UnsupportedOperationException {@inheritDoc}
+   * @throws ClassCastException            {@inheritDoc}
+   * @throws NullPointerException          {@inheritDoc}
+   * @throws IllegalArgumentException      {@inheritDoc}
+   */
+  public int drainTo(Collection&lt;? super E&gt; c) {
+<span class="nc" id="L591">    return drainTo(c, Integer.MAX_VALUE);</span>
+  }
+
+  /**
+   * @throws UnsupportedOperationException {@inheritDoc}
+   * @throws ClassCastException            {@inheritDoc}
+   * @throws NullPointerException          {@inheritDoc}
+   * @throws IllegalArgumentException      {@inheritDoc}
+   */
+  public int drainTo(Collection&lt;? super E&gt; c, int maxElements) {
+<span class="nc" id="L601">    Objects.requireNonNull(c);</span>
+<span class="nc bnc" id="L602" title="All 2 branches missed.">    if (c == this) throw new IllegalArgumentException();</span>
+<span class="nc bnc" id="L603" title="All 2 branches missed.">    if (maxElements &lt;= 0) return 0;</span>
+<span class="nc" id="L604">    boolean signalNotFull = false;</span>
+<span class="nc" id="L605">    final ReentrantLock takeLock = this.takeLock;</span>
+<span class="nc" id="L606">    takeLock.lock();</span>
+    try {
+<span class="nc" id="L608">      int n = Math.min(maxElements, count.get());</span>
+      // count.get provides visibility to first n Nodes
+<span class="nc" id="L610">      Node&lt;E&gt; h = head;</span>
+<span class="nc" id="L611">      int i = 0;</span>
+      try {
+<span class="nc bnc" id="L613" title="All 2 branches missed.">        while (i &lt; n) {</span>
+<span class="nc" id="L614">          Node&lt;E&gt; p = h.next;</span>
+<span class="nc" id="L615">          c.add(p.item);</span>
+<span class="nc" id="L616">          p.item = null;</span>
+<span class="nc" id="L617">          h.next = h;</span>
+<span class="nc" id="L618">          h = p;</span>
+<span class="nc" id="L619">          ++i;</span>
+<span class="nc" id="L620">        }</span>
+<span class="nc" id="L621">        return n;</span>
+      } finally {
+        // Restore invariants even if c.add() threw
+<span class="nc bnc" id="L624" title="All 2 branches missed.">        if (i &gt; 0) {</span>
+          // assert h.item == null;
+<span class="nc" id="L626">          head = h;</span>
+<span class="nc bnc" id="L627" title="All 2 branches missed.">          signalNotFull = (count.getAndAdd(-i) == capacity);</span>
+        }
+      }
+    } finally {
+<span class="nc" id="L631">      takeLock.unlock();</span>
+<span class="nc bnc" id="L632" title="All 2 branches missed.">      if (signalNotFull) signalNotFull();</span>
+    }
+  }
+
+  /**
+   * Used for any element traversal that is not entirely under lock.
+   * Such traversals must handle both:
+   * - dequeued nodes (p.next == p)
+   * - (possibly multiple) interior removed nodes (p.item == null)
+   */
+  Node&lt;E&gt; succ(Node&lt;E&gt; p) {
+<span class="pc bpc" id="L643" title="1 of 2 branches missed.">    if (p == (p = p.next)) p = head.next;</span>
+<span class="fc" id="L644">    return p;</span>
+  }
+
+  /**
+   * Returns an iterator over the elements in this queue in proper sequence.
+   * The elements will be returned in order from first (head) to last (tail).
+   *
+   * &lt;p&gt;The returned iterator is
+   * &lt;a href=&quot;package-summary.html#Weakly&quot;&gt;&lt;i&gt;weakly consistent&lt;/i&gt;&lt;/a&gt;.
+   *
+   * @return an iterator over the elements in this queue in proper sequence
+   */
+  public Iterator&lt;E&gt; iterator() {
+<span class="nc" id="L657">    return new Itr();</span>
+  }
+
+  /**
+   * Weakly-consistent iterator.
+   *
+   * Lazily updated ancestor field provides expected O(1) remove(),
+   * but still O(n) in the worst case, whenever the saved ancestor
+   * is concurrently deleted.
+   */
+  private class Itr implements Iterator&lt;E&gt; {
+    private Node&lt;E&gt; next; // Node holding nextItem
+    private E nextItem; // next item to hand out
+    private Node&lt;E&gt; lastRet;
+    private Node&lt;E&gt; ancestor; // Helps unlink lastRet on remove()
+
+<span class="nc" id="L673">    Itr() {</span>
+<span class="nc" id="L674">      fullyLock();</span>
+      try {
+<span class="nc bnc" id="L676" title="All 2 branches missed.">        if ((next = head.next) != null) nextItem = next.item;</span>
+      } finally {
+<span class="nc" id="L678">        fullyUnlock();</span>
+      }
+<span class="nc" id="L680">    }</span>
+
+    public boolean hasNext() {
+<span class="nc bnc" id="L683" title="All 2 branches missed.">      return next != null;</span>
+    }
+
+    public E next() {
+      Node&lt;E&gt; p;
+<span class="nc bnc" id="L688" title="All 2 branches missed.">      if ((p = next) == null) throw new NoSuchElementException();</span>
+<span class="nc" id="L689">      lastRet = p;</span>
+<span class="nc" id="L690">      E x = nextItem;</span>
+<span class="nc" id="L691">      fullyLock();</span>
+      try {
+<span class="nc" id="L693">        E e = null;</span>
+<span class="nc bnc" id="L694" title="All 4 branches missed.">        for (p = p.next; p != null &amp;&amp; (e = p.item) == null; ) p = succ(p);</span>
+<span class="nc" id="L695">        next = p;</span>
+<span class="nc" id="L696">        nextItem = e;</span>
+      } finally {
+<span class="nc" id="L698">        fullyUnlock();</span>
+      }
+<span class="nc" id="L700">      return x;</span>
+    }
+
+    public void forEachRemaining(Consumer&lt;? super E&gt; action) {
+      // A variant of forEachFrom
+<span class="nc" id="L705">      Objects.requireNonNull(action);</span>
+      Node&lt;E&gt; p;
+<span class="nc bnc" id="L707" title="All 2 branches missed.">      if ((p = next) == null) return;</span>
+<span class="nc" id="L708">      lastRet = p;</span>
+<span class="nc" id="L709">      next = null;</span>
+<span class="nc" id="L710">      final int batchSize = 64;</span>
+<span class="nc" id="L711">      Object[] es = null;</span>
+<span class="nc" id="L712">      int n, len = 1;</span>
+      do {
+<span class="nc" id="L714">        fullyLock();</span>
+        try {
+<span class="nc bnc" id="L716" title="All 2 branches missed.">          if (es == null) {</span>
+<span class="nc" id="L717">            p = p.next;</span>
+<span class="nc bnc" id="L718" title="All 2 branches missed.">            for (Node&lt;E&gt; q = p; q != null; q = succ(q))</span>
+<span class="nc bnc" id="L719" title="All 4 branches missed.">              if (q.item != null &amp;&amp; ++len == batchSize) break;</span>
+<span class="nc" id="L720">            es = new Object[len];</span>
+<span class="nc" id="L721">            es[0] = nextItem;</span>
+<span class="nc" id="L722">            nextItem = null;</span>
+<span class="nc" id="L723">            n = 1;</span>
+<span class="nc" id="L724">          } else n = 0;</span>
+<span class="nc bnc" id="L725" title="All 4 branches missed.">          for (; p != null &amp;&amp; n &lt; len; p = succ(p))</span>
+<span class="nc bnc" id="L726" title="All 2 branches missed.">            if ((es[n] = p.item) != null) {</span>
+<span class="nc" id="L727">              lastRet = p;</span>
+<span class="nc" id="L728">              n++;</span>
+            }
+        } finally {
+<span class="nc" id="L731">          fullyUnlock();</span>
+        }
+<span class="nc bnc" id="L733" title="All 2 branches missed.">        for (int i = 0; i &lt; n; i++) {</span>
+          @SuppressWarnings(&quot;unchecked&quot;)
+<span class="nc" id="L735">          E e = (E) es[i];</span>
+<span class="nc" id="L736">          action.accept(e);</span>
+        }
+<span class="nc bnc" id="L738" title="All 4 branches missed.">      } while (n &gt; 0 &amp;&amp; p != null);</span>
+<span class="nc" id="L739">    }</span>
+
+    public void remove() {
+<span class="nc" id="L742">      Node&lt;E&gt; p = lastRet;</span>
+<span class="nc bnc" id="L743" title="All 2 branches missed.">      if (p == null) throw new IllegalStateException();</span>
+<span class="nc" id="L744">      lastRet = null;</span>
+<span class="nc" id="L745">      fullyLock();</span>
+      try {
+<span class="nc bnc" id="L747" title="All 2 branches missed.">        if (p.item != null) {</span>
+<span class="nc bnc" id="L748" title="All 2 branches missed.">          if (ancestor == null) ancestor = head;</span>
+<span class="nc" id="L749">          ancestor = findPred(p, ancestor);</span>
+<span class="nc" id="L750">          unlink(p, ancestor);</span>
+        }
+      } finally {
+<span class="nc" id="L753">        fullyUnlock();</span>
+      }
+<span class="nc" id="L755">    }</span>
+  }
+
+  public OrderIterator orderIterator() {
+<span class="fc" id="L759">    return orderIterator(x -&gt; true);</span>
+  }
+
+  public OrderIterator orderIterator(Predicate&lt;E&gt; belongFilter) {
+<span class="fc" id="L763">    return new OrderIterator(belongFilter);</span>
+  }
+
+  public final class OrderIterator implements Iterator&lt;E&gt; {
+    private Predicate&lt;E&gt; belongFilter;
+    private Node&lt;E&gt; pointer;
+
+<span class="fc" id="L770">    OrderIterator(Predicate&lt;E&gt; belongFilter) {</span>
+<span class="fc" id="L771">      this.belongFilter = belongFilter;</span>
+<span class="fc" id="L772">      fullyLock();</span>
+      try {
+<span class="fc" id="L774">        this.pointer = head;</span>
+<span class="fc" id="L775">        this.pointer.orderIteratorCount.incrementAndGet();</span>
+      } finally {
+<span class="fc" id="L777">        fullyUnlock();</span>
+      }
+<span class="fc" id="L779">    }</span>
+
+    @Override
+    public E next() {
+<span class="fc" id="L783">      Node&lt;E&gt; p = this.pointer;</span>
+<span class="pc bpc" id="L784" title="1 of 2 branches missed.">      if (p.next == null) {</span>
+<span class="nc" id="L785">        throw new NoSuchElementException();</span>
+      }
+<span class="fc" id="L787">      fullyLock();</span>
+<span class="fc" id="L788">      E e = null;</span>
+      try {
+<span class="pc bpc" id="L790" title="1 of 6 branches missed.">        for (p = p.next; p != null &amp;&amp; ((e = p.item) == null || !this.belongFilter.test(p.item)); )</span>
+<span class="fc" id="L791">          p = succ(p);</span>
+<span class="fc bfc" id="L792" title="All 2 branches covered.">        if (p != null) {</span>
+<span class="fc" id="L793">          this.pointer.orderIteratorCount.decrementAndGet();</span>
+<span class="fc" id="L794">          this.pointer = p;</span>
+<span class="fc" id="L795">          this.pointer.orderIteratorCount.incrementAndGet();</span>
+<span class="fc" id="L796">          e = this.pointer.item;</span>
+        } else {
+<span class="fc" id="L798">          e = null;</span>
+        }
+      } finally {
+<span class="fc" id="L801">        fullyUnlock();</span>
+      }
+<span class="fc" id="L803">      return e;</span>
+    }
+
+    public E next(Duration timeout) throws InterruptedException {
+<span class="fc" id="L807">      long nanos = timeout.toNanos();</span>
+<span class="fc" id="L808">      final ReentrantLock localPutLock = putLock;</span>
+<span class="fc" id="L809">      localPutLock.lockInterruptibly();</span>
+      try {
+<span class="fc" id="L811">        Node&lt;E&gt; p = this.pointer;</span>
+<span class="fc bfc" id="L812" title="All 2 branches covered.">        while (p.next == null) {</span>
+<span class="fc bfc" id="L813" title="All 2 branches covered.">          if (nanos &lt;= 0L) return null;</span>
+<span class="fc" id="L814">          nanos = newElement.awaitNanos(nanos);</span>
+<span class="fc" id="L815">          p = this.pointer;</span>
+        }
+<span class="fc" id="L817">        return next();</span>
+      } finally {
+<span class="fc" id="L819">        localPutLock.unlock();</span>
+      }
+    }
+
+    @Override
+    public boolean hasNext() {
+<span class="nc" id="L825">      throw new UnsupportedOperationException();</span>
+    }
+
+    @Override
+    public void remove() {
+<span class="nc" id="L830">      throw new UnsupportedOperationException();</span>
+    }
+
+    @Override
+    public void forEachRemaining(Consumer&lt;? super E&gt; action) {
+<span class="nc" id="L835">      throw new UnsupportedOperationException();</span>
+    }
+  }
+
+  /**
+   * A customized variant of Spliterators.IteratorSpliterator.
+   * Keep this class in sync with (very similar) LBDSpliterator.
+   */
+  private final class LBQSpliterator implements Spliterator&lt;E&gt; {
+    static final int MAX_BATCH = 1 &lt;&lt; 25; // max batch array size;
+    Node&lt;E&gt; current; // current node; null until initialized
+    int batch; // batch size for splits
+    boolean exhausted; // true when no more nodes
+<span class="nc" id="L848">    long est = size(); // size estimate</span>
+
+<span class="nc" id="L850">    LBQSpliterator() {}</span>
+
+    public long estimateSize() {
+<span class="nc" id="L853">      return est;</span>
+    }
+
+    public Spliterator&lt;E&gt; trySplit() {
+      Node&lt;E&gt; h;
+<span class="nc bnc" id="L858" title="All 8 branches missed.">      if (!exhausted &amp;&amp; ((h = current) != null || (h = head.next) != null) &amp;&amp; h.next != null) {</span>
+<span class="nc" id="L859">        int n = batch = Math.min(batch + 1, MAX_BATCH);</span>
+<span class="nc" id="L860">        Object[] a = new Object[n];</span>
+<span class="nc" id="L861">        int i = 0;</span>
+<span class="nc" id="L862">        Node&lt;E&gt; p = current;</span>
+<span class="nc" id="L863">        fullyLock();</span>
+        try {
+<span class="nc bnc" id="L865" title="All 4 branches missed.">          if (p != null || (p = head.next) != null)</span>
+<span class="nc bnc" id="L866" title="All 6 branches missed.">            for (; p != null &amp;&amp; i &lt; n; p = succ(p)) if ((a[i] = p.item) != null) i++;</span>
+        } finally {
+<span class="nc" id="L868">          fullyUnlock();</span>
+        }
+<span class="nc bnc" id="L870" title="All 2 branches missed.">        if ((current = p) == null) {</span>
+<span class="nc" id="L871">          est = 0L;</span>
+<span class="nc" id="L872">          exhausted = true;</span>
+<span class="nc bnc" id="L873" title="All 2 branches missed.">        } else if ((est -= i) &lt; 0L) est = 0L;</span>
+<span class="nc bnc" id="L874" title="All 2 branches missed.">        if (i &gt; 0)</span>
+<span class="nc" id="L875">          return Spliterators.spliterator(</span>
+              a, 0, i, (Spliterator.ORDERED | Spliterator.NONNULL | Spliterator.CONCURRENT));
+      }
+<span class="nc" id="L878">      return null;</span>
+    }
+
+    public boolean tryAdvance(Consumer&lt;? super E&gt; action) {
+<span class="nc" id="L882">      Objects.requireNonNull(action);</span>
+<span class="nc bnc" id="L883" title="All 2 branches missed.">      if (!exhausted) {</span>
+<span class="nc" id="L884">        E e = null;</span>
+<span class="nc" id="L885">        fullyLock();</span>
+        try {
+          Node&lt;E&gt; p;
+<span class="nc bnc" id="L888" title="All 4 branches missed.">          if ((p = current) != null || (p = head.next) != null)</span>
+            do {
+<span class="nc" id="L890">              e = p.item;</span>
+<span class="nc" id="L891">              p = succ(p);</span>
+<span class="nc bnc" id="L892" title="All 4 branches missed.">            } while (e == null &amp;&amp; p != null);</span>
+<span class="nc bnc" id="L893" title="All 2 branches missed.">          if ((current = p) == null) exhausted = true;</span>
+        } finally {
+<span class="nc" id="L895">          fullyUnlock();</span>
+        }
+<span class="nc bnc" id="L897" title="All 2 branches missed.">        if (e != null) {</span>
+<span class="nc" id="L898">          action.accept(e);</span>
+<span class="nc" id="L899">          return true;</span>
+        }
+      }
+<span class="nc" id="L902">      return false;</span>
+    }
+
+    public void forEachRemaining(Consumer&lt;? super E&gt; action) {
+<span class="nc" id="L906">      Objects.requireNonNull(action);</span>
+<span class="nc bnc" id="L907" title="All 2 branches missed.">      if (!exhausted) {</span>
+<span class="nc" id="L908">        exhausted = true;</span>
+<span class="nc" id="L909">        Node&lt;E&gt; p = current;</span>
+<span class="nc" id="L910">        current = null;</span>
+<span class="nc" id="L911">        forEachFrom(action, p, x -&gt; false);</span>
+      }
+<span class="nc" id="L913">    }</span>
+
+    public int characteristics() {
+<span class="nc" id="L916">      return (Spliterator.ORDERED | Spliterator.NONNULL | Spliterator.CONCURRENT);</span>
+    }
+  }
+
+  /**
+   * Returns a {@link Spliterator} over the elements in this queue.
+   *
+   * &lt;p&gt;The returned spliterator is
+   * &lt;a href=&quot;package-summary.html#Weakly&quot;&gt;&lt;i&gt;weakly consistent&lt;/i&gt;&lt;/a&gt;.
+   *
+   * &lt;p&gt;The {@code Spliterator} reports {@link Spliterator#CONCURRENT},
+   * {@link Spliterator#ORDERED}, and {@link Spliterator#NONNULL}.
+   *
+   * @implNote
+   * The {@code Spliterator} implements {@code trySplit} to permit limited
+   * parallelism.
+   *
+   * @return a {@code Spliterator} over the elements in this queue
+   * @since 1.8
+   */
+  public Spliterator&lt;E&gt; spliterator() {
+<span class="nc" id="L937">    return new LBQSpliterator();</span>
+  }
+
+  /**
+   * @throws NullPointerException {@inheritDoc}
+   */
+  public void forEach(Consumer&lt;? super E&gt; action) {
+<span class="nc" id="L944">    Objects.requireNonNull(action);</span>
+<span class="nc" id="L945">    forEachFrom(action, null, x -&gt; false);</span>
+<span class="nc" id="L946">  }</span>
+
+  public void forEach(Consumer&lt;? super E&gt; action, Predicate&lt;? super E&gt; stop) {
+<span class="nc" id="L949">    Objects.requireNonNull(action);</span>
+<span class="nc" id="L950">    forEachFrom(action, null, stop);</span>
+<span class="nc" id="L951">  }</span>
+
+  /**
+   * Runs action on each element found during a traversal starting at p.
+   * If p is null, traversal starts at head.
+   */
+  void forEachFrom(Consumer&lt;? super E&gt; action, Node&lt;E&gt; p, Predicate&lt;? super E&gt; stop) {
+    // Extract batches of elements while holding the lock; then
+    // run the action on the elements while not
+<span class="nc" id="L960">    final int batchSize = 64; // max number of elements per batch</span>
+<span class="nc" id="L961">    Object[] es = null; // container for batch of elements</span>
+<span class="nc" id="L962">    int n, len = 0;</span>
+    do {
+<span class="nc" id="L964">      fullyLock();</span>
+      try {
+<span class="nc bnc" id="L966" title="All 2 branches missed.">        if (es == null) {</span>
+<span class="nc bnc" id="L967" title="All 2 branches missed.">          if (p == null) p = head.next;</span>
+<span class="nc bnc" id="L968" title="All 2 branches missed.">          for (Node&lt;E&gt; q = p; q != null; q = succ(q))</span>
+<span class="nc bnc" id="L969" title="All 4 branches missed.">            if (q.item != null &amp;&amp; ++len == batchSize) break;</span>
+<span class="nc" id="L970">          es = new Object[len];</span>
+        }
+<span class="nc bnc" id="L972" title="All 6 branches missed.">        for (n = 0; p != null &amp;&amp; n &lt; len; p = succ(p)) if ((es[n] = p.item) != null) n++;</span>
+      } finally {
+<span class="nc" id="L974">        fullyUnlock();</span>
+      }
+<span class="nc bnc" id="L976" title="All 2 branches missed.">      for (int i = 0; i &lt; n; i++) {</span>
+        @SuppressWarnings(&quot;unchecked&quot;)
+<span class="nc" id="L978">        E e = (E) es[i];</span>
+<span class="nc" id="L979">        action.accept(e);</span>
+<span class="nc bnc" id="L980" title="All 2 branches missed.">        if (stop.test(e)) {</span>
+<span class="nc" id="L981">          return;</span>
+        }
+      }
+<span class="nc bnc" id="L984" title="All 4 branches missed.">    } while (n &gt; 0 &amp;&amp; p != null);</span>
+<span class="nc" id="L985">  }</span>
+
+  /**
+   * @throws NullPointerException {@inheritDoc}
+   */
+  public boolean removeIf(Predicate&lt;? super E&gt; filter) {
+<span class="nc" id="L991">    Objects.requireNonNull(filter);</span>
+<span class="nc" id="L992">    return bulkRemove(filter);</span>
+  }
+
+  /**
+   * @throws NullPointerException {@inheritDoc}
+   */
+  public boolean removeAll(Collection&lt;?&gt; c) {
+<span class="nc" id="L999">    Objects.requireNonNull(c);</span>
+<span class="nc" id="L1000">    return bulkRemove(e -&gt; c.contains(e));</span>
+  }
+
+  /**
+   * @throws NullPointerException {@inheritDoc}
+   */
+  public boolean retainAll(Collection&lt;?&gt; c) {
+<span class="nc" id="L1007">    Objects.requireNonNull(c);</span>
+<span class="nc bnc" id="L1008" title="All 2 branches missed.">    return bulkRemove(e -&gt; !c.contains(e));</span>
+  }
+
+  /**
+   * Returns the predecessor of live node p, given a node that was
+   * once a live ancestor of p (or head); allows unlinking of p.
+   */
+  Node&lt;E&gt; findPred(Node&lt;E&gt; p, Node&lt;E&gt; ancestor) {
+    // assert p.item != null;
+<span class="nc bnc" id="L1017" title="All 2 branches missed.">    if (ancestor.item == null) ancestor = head;</span>
+    // Fails with NPE if precondition not satisfied
+<span class="nc bnc" id="L1019" title="All 2 branches missed.">    for (Node&lt;E&gt; q; (q = ancestor.next) != p; ) ancestor = q;</span>
+<span class="nc" id="L1020">    return ancestor;</span>
+  }
+
+  /** Implementation of bulk remove methods. */
+  @SuppressWarnings(&quot;unchecked&quot;)
+  private boolean bulkRemove(Predicate&lt;? super E&gt; filter) {
+<span class="nc" id="L1026">    boolean removed = false;</span>
+<span class="nc" id="L1027">    Node&lt;E&gt; p = null, ancestor = head;</span>
+<span class="nc" id="L1028">    Node&lt;E&gt;[] nodes = null;</span>
+<span class="nc" id="L1029">    int n, len = 0;</span>
+    do {
+      // 1. Extract batch of up to 64 elements while holding the lock.
+<span class="nc" id="L1032">      fullyLock();</span>
+      try {
+<span class="nc bnc" id="L1034" title="All 2 branches missed.">        if (nodes == null) { // first batch; initialize</span>
+<span class="nc" id="L1035">          p = head.next;</span>
+<span class="nc bnc" id="L1036" title="All 6 branches missed.">          for (Node&lt;E&gt; q = p; q != null; q = succ(q)) if (q.item != null &amp;&amp; ++len == 64) break;</span>
+<span class="nc" id="L1037">          nodes = (Node&lt;E&gt;[]) new Node&lt;?&gt;[len];</span>
+        }
+<span class="nc bnc" id="L1039" title="All 4 branches missed.">        for (n = 0; p != null &amp;&amp; n &lt; len; p = succ(p)) nodes[n++] = p;</span>
+      } finally {
+<span class="nc" id="L1041">        fullyUnlock();</span>
+      }
+
+      // 2. Run the filter on the elements while lock is free.
+<span class="nc" id="L1045">      long deathRow = 0L; // &quot;bitset&quot; of size 64</span>
+<span class="nc bnc" id="L1046" title="All 2 branches missed.">      for (int i = 0; i &lt; n; i++) {</span>
+        final E e;
+<span class="nc bnc" id="L1048" title="All 4 branches missed.">        if ((e = nodes[i].item) != null &amp;&amp; filter.test(e)) deathRow |= 1L &lt;&lt; i;</span>
+      }
+
+      // 3. Remove any filtered elements while holding the lock.
+<span class="nc bnc" id="L1052" title="All 2 branches missed.">      if (deathRow != 0) {</span>
+<span class="nc" id="L1053">        fullyLock();</span>
+        try {
+<span class="nc bnc" id="L1055" title="All 2 branches missed.">          for (int i = 0; i &lt; n; i++) {</span>
+            final Node&lt;E&gt; q;
+<span class="nc bnc" id="L1057" title="All 4 branches missed.">            if ((deathRow &amp; (1L &lt;&lt; i)) != 0L &amp;&amp; (q = nodes[i]).item != null) {</span>
+<span class="nc" id="L1058">              ancestor = findPred(q, ancestor);</span>
+<span class="nc" id="L1059">              unlink(q, ancestor);</span>
+<span class="nc" id="L1060">              removed = true;</span>
+            }
+<span class="nc" id="L1062">            nodes[i] = null; // help GC</span>
+          }
+        } finally {
+<span class="nc" id="L1065">          fullyUnlock();</span>
+        }
+      }
+<span class="nc bnc" id="L1068" title="All 4 branches missed.">    } while (n &gt; 0 &amp;&amp; p != null);</span>
+<span class="nc" id="L1069">    return removed;</span>
+  }
+
+  /**
+   * Saves this queue to a stream (that is, serializes it).
+   *
+   * @param s the stream
+   * @throws java.io.IOException if an I/O error occurs
+   * @serialData The capacity is emitted (int), followed by all of
+   * its elements (each an {@code Object}) in the proper order,
+   * followed by a null
+   */
+  private void writeObject(java.io.ObjectOutputStream s) throws java.io.IOException {
+
+<span class="nc" id="L1083">    fullyLock();</span>
+    try {
+      // Write out any hidden stuff, plus capacity
+<span class="nc" id="L1086">      s.defaultWriteObject();</span>
+
+      // Write out all elements in the proper order.
+<span class="nc bnc" id="L1089" title="All 2 branches missed.">      for (Node&lt;E&gt; p = head.next; p != null; p = p.next) s.writeObject(p.item);</span>
+
+      // Use trailing null as sentinel
+<span class="nc" id="L1092">      s.writeObject(null);</span>
+    } finally {
+<span class="nc" id="L1094">      fullyUnlock();</span>
+    }
+<span class="nc" id="L1096">  }</span>
+
+  /**
+   * Reconstitutes this queue from a stream (that is, deserializes it).
+   * @param s the stream
+   * @throws ClassNotFoundException if the class of a serialized object
+   *         could not be found
+   * @throws java.io.IOException if an I/O error occurs
+   */
+  private void readObject(java.io.ObjectInputStream s)
+      throws java.io.IOException, ClassNotFoundException {
+    // Read in capacity, and any hidden stuff
+<span class="nc" id="L1108">    s.defaultReadObject();</span>
+
+<span class="nc" id="L1110">    count.set(0);</span>
+<span class="nc" id="L1111">    last = head = new Node&lt;E&gt;(null);</span>
+
+    // Read in all elements and place in queue
+    for (; ; ) {
+      @SuppressWarnings(&quot;unchecked&quot;)
+<span class="nc" id="L1116">      E item = (E) s.readObject();</span>
+<span class="nc bnc" id="L1117" title="All 2 branches missed.">      if (item == null) break;</span>
+<span class="nc" id="L1118">      add(item);</span>
+<span class="nc" id="L1119">    }</span>
+<span class="nc" id="L1120">  }</span>
+
+  public boolean add(E e) {
+<span class="pc bpc" id="L1123" title="1 of 2 branches missed.">    if (offer(e)) return true;</span>
+<span class="nc" id="L1124">    else throw new IllegalStateException(&quot;Queue full&quot;);</span>
+  }
+
+  public void purge(PurgeFunction&lt;E&gt; purger) {
+<span class="fc" id="L1128">    fullyLock();</span>
+<span class="fc" id="L1129">    int c = count.get();</span>
+    try {
+<span class="fc" id="L1131">      Node&lt;E&gt; pred = null;</span>
+<span class="fc" id="L1132">      Node&lt;E&gt; p = this.head;</span>
+<span class="fc bfc" id="L1133" title="All 2 branches covered.">      while (p.next != null) {</span>
+        try {
+<span class="fc bfc" id="L1135" title="All 2 branches covered.">          if (p.orderIteratorCount.get() &gt; 0) {</span>
+<span class="fc" id="L1136">            return;</span>
+          }
+<span class="pc bpc" id="L1138" title="1 of 2 branches missed.">          if (purger.isPurgeable(p.item)) {</span>
+<span class="pc bpc" id="L1139" title="1 of 2 branches missed.">            if (pred == null) {</span>
+<span class="fc" id="L1140">              p = p.next;</span>
+<span class="fc" id="L1141">              dequeue();</span>
+<span class="fc" id="L1142">              c = count.getAndDecrement();</span>
+            } else {
+<span class="nc" id="L1144">              unlink(p, pred);</span>
+            }
+          } else {
+<span class="nc" id="L1147">            pred = p;</span>
+<span class="nc" id="L1148">            p = p.next;</span>
+          }
+<span class="fc" id="L1150">        } catch (TimeoutException e) {</span>
+<span class="fc" id="L1151">          break;</span>
+<span class="fc" id="L1152">        }</span>
+      }
+<span class="fc bfc" id="L1154" title="All 2 branches covered.">      if (c &gt; 1) notEmpty.signal();</span>
+    } finally {
+<span class="fc" id="L1156">      fullyUnlock();</span>
+    }
+<span class="pc bpc" id="L1158" title="1 of 2 branches missed.">    if (c == capacity) signalNotFull();</span>
+<span class="fc" id="L1159">  }</span>
+
+  public void purge(final PurgeFunction&lt;E&gt; purger, final Duration maxInvestTime) {
+<span class="fc" id="L1162">    final long start = System.currentTimeMillis();</span>
+<span class="fc" id="L1163">    purge(</span>
+        e -&gt; {
+<span class="fc bfc" id="L1165" title="All 2 branches covered.">          if (System.currentTimeMillis() - start &gt; maxInvestTime.toMillis()) {</span>
+<span class="fc" id="L1166">            throw new TimeoutException();</span>
+          }
+<span class="fc" id="L1168">          return purger.isPurgeable(e);</span>
+        });
+<span class="fc" id="L1170">  }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

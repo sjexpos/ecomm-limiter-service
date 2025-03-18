@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../jacoco-resources/report.gif" type="image/gif"/><title>ApplicationReadyInitializer.java</title><link rel="stylesheet" href="../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../index.html" class="el_report">Aggregated Reports</a> &gt; <a href="../index.html" class="el_bundle">limiter-service-kafka-mps</a> &gt; <a href="index.source.html" class="el_package">io.oigres.ecomm.service.limiter.config</a> &gt; <span class="el_source">ApplicationReadyInitializer.java</span></div><h1>ApplicationReadyInitializer.java</h1><pre class="source lang-java linenums">/**********
+ This project is free software; you can redistribute it and/or modify it under
+ the terms of the GNU General Public License as published by the
+ Free Software Foundation; either version 3.0 of the License, or (at your
+ option) any later version. (See &lt;https://www.gnu.org/licenses/gpl-3.0.html&gt;.)
+
+ This project is distributed in the hope that it will be useful, but WITHOUT
+ ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ more details.
+
+ You should have received a copy of the GNU General Public License
+ along with this project; if not, write to the Free Software Foundation, Inc.,
+ 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
+ **********/
+// Copyright (c) 2024-2025 Sergio Exposito.  All rights reserved.              
+
+package io.oigres.ecomm.service.limiter.config;
+
+import java.lang.management.ManagementFactory;
+import java.lang.management.MemoryMXBean;
+import java.nio.charset.Charset;
+import java.time.ZonedDateTime;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.io.FileUtils;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.ApplicationListener;
+import org.springframework.core.annotation.Order;
+import org.springframework.core.env.Environment;
+import org.springframework.stereotype.Component;
+
+@Component
+@Order(0)
+<span class="nc" id="L35">@Slf4j</span>
+<span class="nc" id="L36">public class ApplicationReadyInitializer implements ApplicationListener&lt;ApplicationReadyEvent&gt; {</span>
+
+  @Autowired private Environment environment;
+
+  @Override
+  public void onApplicationEvent(ApplicationReadyEvent event) {
+<span class="nc" id="L42">    log.info(&quot;&quot;);</span>
+<span class="nc" id="L43">    log.info(&quot;********************************************************************&quot;);</span>
+<span class="nc" id="L44">    log.info(&quot; LIMITER SERVICE STARTED&quot;);</span>
+<span class="nc" id="L45">    log.info(&quot;********************************************************************&quot;);</span>
+<span class="nc" id="L46">    log.info(&quot;Default Charset: {}&quot;, Charset.defaultCharset());</span>
+<span class="nc" id="L47">    log.info(&quot;File Encoding:   {}&quot;, System.getProperty(&quot;file.encoding&quot;));</span>
+<span class="nc" id="L48">    log.info(&quot;Server time:     {}&quot;, ZonedDateTime.now());</span>
+<span class="nc" id="L49">    MemoryMXBean memoryBean = ManagementFactory.getMemoryMXBean();</span>
+<span class="nc" id="L50">    log.info(&quot;----------------------- JVM memory ----------------------&quot;);</span>
+<span class="nc" id="L51">    log.info(</span>
+        &quot;Max Heap size:     {}&quot;,
+<span class="nc" id="L53">        FileUtils.byteCountToDisplaySize(memoryBean.getHeapMemoryUsage().getMax()));</span>
+<span class="nc" id="L54">    log.info(</span>
+        &quot;Initial Heap size: {}&quot;,
+<span class="nc" id="L56">        FileUtils.byteCountToDisplaySize(memoryBean.getHeapMemoryUsage().getInit()));</span>
+<span class="nc" id="L57">    log.info(</span>
+        &quot;Heap usage:        {}&quot;,
+<span class="nc" id="L59">        FileUtils.byteCountToDisplaySize(memoryBean.getHeapMemoryUsage().getUsed()));</span>
+<span class="nc" id="L60">    log.info(&quot;--------------------------- Kafka -----------------------&quot;);</span>
+<span class="nc" id="L61">    log.info(&quot;Hosts:    {}&quot;, environment.getProperty(&quot;spring.kafka.bootstrap-servers&quot;));</span>
+<span class="nc" id="L62">    log.info(&quot;Group-ID: {}&quot;, environment.getProperty(&quot;spring.kafka.consumer.group-id&quot;));</span>
+<span class="nc" id="L63">    log.info(&quot;-------------------------- Topic ----------------------&quot;);</span>
+<span class="nc" id="L64">    log.info(</span>
+<span class="nc" id="L65">        &quot;Topic name: {}&quot;, environment.getProperty(&quot;ecomm.service.limiter.topics.incoming-request&quot;));</span>
+<span class="nc" id="L66">    log.info(</span>
+<span class="nc" id="L67">        &quot;DLQ:        {}&quot;, environment.getProperty(&quot;ecomm.service.limiter.topics.request-dlq.name&quot;));</span>
+<span class="nc" id="L68">    log.info(&quot;-------------------------- Reader ----------------------&quot;);</span>
+<span class="nc" id="L69">    log.info(</span>
+        &quot;Queue timeout: {}&quot;,
+<span class="nc" id="L71">        environment.getProperty(&quot;ecomm.service.limiter.mps.reader.queue-timeout&quot;));</span>
+<span class="nc" id="L72">    log.info(</span>
+<span class="nc" id="L73">        &quot;Purge time: {}&quot;, environment.getProperty(&quot;ecomm.service.limiter.mps.reader.purge-time&quot;));</span>
+<span class="nc" id="L74">    log.info(&quot;-------------------------- Writers ----------------------&quot;);</span>
+<span class="nc" id="L75">    log.info(</span>
+<span class="nc" id="L76">        &quot;Writer threads: {}&quot;, environment.getProperty(&quot;ecomm.service.limiter.mps.writer.threads&quot;));</span>
+<span class="nc" id="L77">    log.info(</span>
+        &quot;Poll timeout: {}&quot;,
+<span class="nc" id="L79">        environment.getProperty(&quot;ecomm.service.limiter.mps.writer.poll-timeout&quot;));</span>
+<span class="nc" id="L80">    log.info(&quot;-------------------------- Tracing ----------------------&quot;);</span>
+<span class="nc" id="L81">    log.info(&quot;URL: {}&quot;, environment.getProperty(&quot;ecomm.service.tracing.url&quot;));</span>
+<span class="nc" id="L82">    log.info(&quot;********************************************************************&quot;);</span>
+<span class="nc" id="L83">    log.info(&quot;&quot;);</span>
+<span class="nc" id="L84">  }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

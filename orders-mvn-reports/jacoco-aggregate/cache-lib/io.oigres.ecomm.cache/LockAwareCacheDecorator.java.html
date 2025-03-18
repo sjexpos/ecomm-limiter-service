@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../jacoco-resources/report.gif" type="image/gif"/><title>LockAwareCacheDecorator.java</title><link rel="stylesheet" href="../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../index.html" class="el_report">Aggregated Reports</a> &gt; <a href="../index.html" class="el_bundle">cache-lib</a> &gt; <a href="index.source.html" class="el_package">io.oigres.ecomm.cache</a> &gt; <span class="el_source">LockAwareCacheDecorator.java</span></div><h1>LockAwareCacheDecorator.java</h1><pre class="source lang-java linenums">/**********
+ This project is free software; you can redistribute it and/or modify it under
+ the terms of the GNU General Public License as published by the
+ Free Software Foundation; either version 3.0 of the License, or (at your
+ option) any later version. (See &lt;https://www.gnu.org/licenses/gpl-3.0.html&gt;.)
+
+ This project is distributed in the hope that it will be useful, but WITHOUT
+ ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ more details.
+
+ You should have received a copy of the GNU General Public License
+ along with this project; if not, write to the Free Software Foundation, Inc.,
+ 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
+ **********/
+// Copyright (c) 2024-2025 Sergio Exposito.  All rights reserved.              
+
+package io.oigres.ecomm.cache;
+
+import java.util.concurrent.Callable;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.locks.Lock;
+import java.util.function.Supplier;
+import org.springframework.cache.Cache;
+import org.springframework.lang.Nullable;
+
+public class LockAwareCacheDecorator implements LockableCache {
+  private CacheLockFactory cacheLockFactory;
+  private Cache delegate;
+
+<span class="nc" id="L31">  protected LockAwareCacheDecorator(CacheLockFactory cacheLockFactory, Cache delegate) {</span>
+<span class="nc" id="L32">    this.cacheLockFactory = cacheLockFactory;</span>
+<span class="nc" id="L33">    this.delegate = delegate;</span>
+<span class="nc" id="L34">  }</span>
+
+  @Override
+  public Lock getLock(Object key) {
+<span class="nc" id="L38">    String lockName = String.valueOf(key);</span>
+<span class="nc" id="L39">    return this.cacheLockFactory.create(lockName);</span>
+  }
+
+  private void createLockIfItIsNeeded(Object key) {
+<span class="nc" id="L43">    String lockName = String.valueOf(key);</span>
+<span class="nc bnc" id="L44" title="All 2 branches missed.">    if (CacheLockManager.isSynchronizationActive()) {</span>
+<span class="nc" id="L45">      Lock lock = CacheLockManager.getLocks(lockName);</span>
+<span class="nc bnc" id="L46" title="All 2 branches missed.">      if (lock == null) {</span>
+<span class="nc" id="L47">        lock = this.cacheLockFactory.create(lockName);</span>
+<span class="nc" id="L48">        CacheLockManager.registerLock(lock, lockName);</span>
+<span class="nc" id="L49">        lock.lock();</span>
+      }
+    }
+<span class="nc" id="L52">  }</span>
+
+  @Override
+  public String getName() {
+<span class="nc" id="L56">    return delegate.getName();</span>
+  }
+
+  @Override
+  public Object getNativeCache() {
+<span class="nc" id="L61">    return this;</span>
+  }
+
+  @Override
+  @Nullable public ValueWrapper get(Object key) {
+<span class="nc" id="L66">    createLockIfItIsNeeded(key);</span>
+<span class="nc" id="L67">    return delegate.get(key);</span>
+  }
+
+  @Override
+  @Nullable public &lt;T&gt; T get(Object key, Class&lt;T&gt; type) {
+<span class="nc" id="L72">    createLockIfItIsNeeded(key);</span>
+<span class="nc" id="L73">    return delegate.get(key, type);</span>
+  }
+
+  @Override
+  @Nullable public &lt;T&gt; T get(Object key, Callable&lt;T&gt; valueLoader) {
+<span class="nc" id="L78">    createLockIfItIsNeeded(key);</span>
+<span class="nc" id="L79">    return delegate.get(key, valueLoader);</span>
+  }
+
+  @Override
+  @Nullable public CompletableFuture&lt;?&gt; retrieve(Object key) {
+<span class="nc" id="L84">    createLockIfItIsNeeded(key);</span>
+<span class="nc" id="L85">    return delegate.retrieve(key);</span>
+  }
+
+  @Override
+  public &lt;T&gt; CompletableFuture&lt;T&gt; retrieve(Object key, Supplier&lt;CompletableFuture&lt;T&gt;&gt; valueLoader) {
+<span class="nc" id="L90">    createLockIfItIsNeeded(key);</span>
+<span class="nc" id="L91">    return delegate.retrieve(key, valueLoader);</span>
+  }
+
+  @Override
+  public void put(Object key, Object value) {
+<span class="nc" id="L96">    createLockIfItIsNeeded(key);</span>
+<span class="nc" id="L97">    delegate.put(key, value);</span>
+<span class="nc" id="L98">  }</span>
+
+  @Override
+  @Nullable public ValueWrapper putIfAbsent(Object key, Object value) {
+<span class="nc" id="L102">    createLockIfItIsNeeded(key);</span>
+<span class="nc" id="L103">    return delegate.putIfAbsent(key, value);</span>
+  }
+
+  @Override
+  public void evict(Object key) {
+<span class="nc" id="L108">    delegate.evict(key);</span>
+<span class="nc" id="L109">  }</span>
+
+  @Override
+  public boolean evictIfPresent(Object key) {
+<span class="nc" id="L113">    return delegate.evictIfPresent(key);</span>
+  }
+
+  @Override
+  public void clear() {
+<span class="nc" id="L118">    delegate.clear();</span>
+<span class="nc" id="L119">  }</span>
+
+  @Override
+  public boolean invalidate() {
+<span class="nc" id="L123">    return delegate.invalidate();</span>
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

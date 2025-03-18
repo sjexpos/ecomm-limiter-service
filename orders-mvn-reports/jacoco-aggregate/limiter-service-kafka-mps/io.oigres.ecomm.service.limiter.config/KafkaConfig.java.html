@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../jacoco-resources/report.gif" type="image/gif"/><title>KafkaConfig.java</title><link rel="stylesheet" href="../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../index.html" class="el_report">Aggregated Reports</a> &gt; <a href="../index.html" class="el_bundle">limiter-service-kafka-mps</a> &gt; <a href="index.source.html" class="el_package">io.oigres.ecomm.service.limiter.config</a> &gt; <span class="el_source">KafkaConfig.java</span></div><h1>KafkaConfig.java</h1><pre class="source lang-java linenums">/**********
+ This project is free software; you can redistribute it and/or modify it under
+ the terms of the GNU General Public License as published by the
+ Free Software Foundation; either version 3.0 of the License, or (at your
+ option) any later version. (See &lt;https://www.gnu.org/licenses/gpl-3.0.html&gt;.)
+
+ This project is distributed in the hope that it will be useful, but WITHOUT
+ ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ more details.
+
+ You should have received a copy of the GNU General Public License
+ along with this project; if not, write to the Free Software Foundation, Inc.,
+ 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
+ **********/
+// Copyright (c) 2024-2025 Sergio Exposito.  All rights reserved.              
+
+package io.oigres.ecomm.service.limiter.config;
+
+import io.oigres.ecomm.service.limiter.mps.writer.MessageWriter;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.IntStream;
+import org.apache.tomcat.util.threads.VirtualThreadExecutor;
+import org.springframework.beans.factory.config.ConfigurableBeanFactory;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.kafka.annotation.EnableKafka;
+import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
+import org.springframework.kafka.core.ConsumerFactory;
+import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.kafka.core.ProducerFactory;
+import org.springframework.kafka.listener.ContainerProperties;
+
+@Configuration
+@EnableKafka
+<span class="nc" id="L37">public class KafkaConfig {</span>
+
+  @Bean
+  public ConcurrentKafkaListenerContainerFactory&lt;String, String&gt; kafkaListenerContainerFactory(
+      ConsumerFactory&lt;String, String&gt; consumerFactory) {
+<span class="nc" id="L42">    ConcurrentKafkaListenerContainerFactory&lt;String, String&gt; factory =</span>
+        new ConcurrentKafkaListenerContainerFactory&lt;&gt;();
+<span class="nc" id="L44">    factory.setConsumerFactory(consumerFactory);</span>
+<span class="nc" id="L45">    factory.setConcurrency(1);</span>
+<span class="nc" id="L46">    factory.getContainerProperties().setObservationEnabled(true);</span>
+<span class="nc" id="L47">    factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL);</span>
+<span class="nc" id="L48">    return factory;</span>
+  }
+
+  //    @Bean
+  //    public KafkaAdmin admin(@Value(&quot;${spring.kafka.bootstrap-servers}&quot;) String kafkaBrokers) {
+  //        Map&lt;String, Object&gt; configs = new HashMap&lt;&gt;();
+  //        configs.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaBrokers);
+  //        return new KafkaAdmin(configs);
+  //    }
+
+  @Bean
+  public KafkaTemplate&lt;String, Object&gt; messageKafkaTemplate(
+      ProducerFactory&lt;String, Object&gt; messageProducerFactory,
+      //            KafkaAdmin kafkaAdmin,
+      RequestDLQTopicProperties topicConfig) {
+    // This topic creation from code requires more permission on Kafka, so it is commented
+    //        kafkaAdmin.createOrModifyTopics(new NewTopic(topicConfig.getName(),
+    // topicConfig.getPartitions(), topicConfig.getReplicationFactor()));
+<span class="nc" id="L66">    KafkaTemplate&lt;String, Object&gt; template = new KafkaTemplate&lt;&gt;(messageProducerFactory);</span>
+<span class="nc" id="L67">    template.setDefaultTopic(topicConfig.getName());</span>
+<span class="nc" id="L68">    template.setObservationEnabled(true);</span>
+<span class="nc" id="L69">    return template;</span>
+  }
+
+  @Bean
+  public List&lt;MessageWriter&gt; messageWriters(
+      ConfigurableBeanFactory beanFactory, MessageWriterProperties properties) {
+<span class="nc" id="L75">    List&lt;MessageWriter&gt; messageWriters = new ArrayList&lt;&gt;(properties.getThreads());</span>
+<span class="nc" id="L76">    IntStream.range(1, properties.getThreads())</span>
+<span class="nc" id="L77">        .forEach(</span>
+            i -&gt; {
+<span class="nc" id="L79">              messageWriters.add(beanFactory.getBean(MessageWriter.class));</span>
+<span class="nc" id="L80">            });</span>
+<span class="nc" id="L81">    VirtualThreadExecutor executor = new VirtualThreadExecutor(&quot;writer&quot;);</span>
+<span class="nc" id="L82">    messageWriters.forEach(executor::execute);</span>
+<span class="nc" id="L83">    return messageWriters;</span>
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>
